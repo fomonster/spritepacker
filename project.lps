@@ -4,11 +4,11 @@
     <PathDelim Value="\"/>
     <Version Value="11"/>
     <BuildModes Active="Default"/>
-    <Units Count="42">
+    <Units Count="44">
       <Unit0>
         <Filename Value="project.lpr"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="10"/>
+        <EditorIndex Value="11"/>
         <CursorPos X="25" Y="17"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
@@ -21,8 +21,8 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="MainFormUnit"/>
-        <TopLine Value="1671"/>
-        <CursorPos X="14" Y="1695"/>
+        <TopLine Value="1674"/>
+        <CursorPos X="52" Y="1668"/>
         <UsageCount Value="200"/>
         <Bookmarks Count="2">
           <Item0 X="6" Y="1125" ID="1"/>
@@ -52,9 +52,9 @@
       <Unit4>
         <Filename Value="packer\SpritePackerNodeUnit.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="2"/>
-        <TopLine Value="352"/>
-        <CursorPos X="49" Y="369"/>
+        <EditorIndex Value="3"/>
+        <TopLine Value="324"/>
+        <CursorPos Y="343"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
@@ -74,9 +74,10 @@
       <Unit6>
         <Filename Value="packer\SpritePackerUnit.pas"/>
         <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
-        <TopLine Value="410"/>
-        <CursorPos X="9" Y="438"/>
+        <TopLine Value="746"/>
+        <CursorPos Y="770"/>
         <UsageCount Value="236"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
@@ -98,7 +99,7 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="SettingsFormUnit"/>
-        <EditorIndex Value="9"/>
+        <EditorIndex Value="10"/>
         <TopLine Value="222"/>
         <CursorPos X="27" Y="224"/>
         <UsageCount Value="205"/>
@@ -127,10 +128,10 @@
       </Unit10>
       <Unit11>
         <Filename Value="ProtectionUnit.pas"/>
-        <EditorIndex Value="8"/>
+        <EditorIndex Value="9"/>
         <TopLine Value="556"/>
         <CursorPos X="27" Y="593"/>
-        <UsageCount Value="95"/>
+        <UsageCount Value="97"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit11>
@@ -151,19 +152,19 @@
       </Unit13>
       <Unit14>
         <Filename Value="units\SSPictureView.pas"/>
-        <EditorIndex Value="3"/>
-        <TopLine Value="478"/>
-        <CursorPos X="42" Y="514"/>
-        <UsageCount Value="22"/>
+        <EditorIndex Value="4"/>
+        <TopLine Value="191"/>
+        <CursorPos X="39" Y="212"/>
+        <UsageCount Value="24"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit14>
       <Unit15>
         <Filename Value="units\SSPictureUnit.pas"/>
-        <EditorIndex Value="4"/>
-        <TopLine Value="289"/>
-        <CursorPos X="24" Y="325"/>
-        <UsageCount Value="32"/>
+        <EditorIndex Value="5"/>
+        <TopLine Value="482"/>
+        <CursorPos X="58" Y="499"/>
+        <UsageCount Value="34"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit15>
@@ -334,31 +335,30 @@
       <Unit37>
         <Filename Value="components\rgb_graphics\rgbgraphics.pas"/>
         <UnitName Value="RGBGraphics"/>
-        <IsVisibleTab Value="True"/>
-        <EditorIndex Value="6"/>
-        <TopLine Value="694"/>
-        <CursorPos X="37" Y="628"/>
-        <UsageCount Value="11"/>
+        <EditorIndex Value="7"/>
+        <TopLine Value="632"/>
+        <CursorPos X="15" Y="636"/>
+        <UsageCount Value="13"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit37>
       <Unit38>
         <Filename Value="components\rgb_graphics\rgbroutines.pas"/>
         <UnitName Value="RGBRoutines"/>
-        <EditorIndex Value="7"/>
+        <EditorIndex Value="8"/>
         <TopLine Value="1144"/>
         <CursorPos X="40" Y="263"/>
-        <UsageCount Value="11"/>
+        <UsageCount Value="13"/>
         <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit38>
       <Unit39>
         <Filename Value="components\rgb_graphics\rgbtypes.pas"/>
         <UnitName Value="RGBTypes"/>
-        <EditorIndex Value="-1"/>
-        <TopLine Value="70"/>
-        <CursorPos X="57" Y="89"/>
-        <UsageCount Value="10"/>
+        <EditorIndex Value="6"/>
+        <CursorPos X="58" Y="763"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit39>
       <Unit40>
@@ -371,133 +371,148 @@
       </Unit40>
       <Unit41>
         <Filename Value="units\SSPictureViewScroll.pas"/>
-        <EditorIndex Value="5"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="13"/>
         <CursorPos X="90" Y="14"/>
         <UsageCount Value="10"/>
-        <Loaded Value="True"/>
         <DefaultSyntaxHighlighter Value="Delphi"/>
       </Unit41>
+      <Unit42>
+        <Filename Value="C:\lazarus\fpc\3.2.0\source\rtl\inc\typshrdh.inc"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="120"/>
+        <CursorPos X="17" Y="146"/>
+        <UsageCount Value="10"/>
+      </Unit42>
+      <Unit43>
+        <Filename Value="C:\lazarus\fpc\3.2.0\source\rtl\objpas\sysutils\finah.inc"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="8"/>
+        <CursorPos X="10" Y="28"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit43>
     </Units>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
-        <Filename Value="units\SSPictureView.pas"/>
-        <Caret Line="114" Column="29" TopLine="79"/>
+        <Filename Value="packer\SpritePackerUnit.pas"/>
+        <Caret Line="764" TopLine="745"/>
       </Position1>
       <Position2>
-        <Filename Value="units\SSPictureView.pas"/>
-        <Caret Line="316" Column="36" TopLine="279"/>
+        <Filename Value="packer\SpritePackerUnit.pas"/>
+        <Caret Line="765" TopLine="745"/>
       </Position2>
       <Position3>
-        <Filename Value="units\SSPictureView.pas"/>
-        <Caret Line="408" Column="36" TopLine="371"/>
+        <Filename Value="packer\SpritePackerNodeUnit.pas"/>
+        <Caret Line="217" TopLine="218"/>
       </Position3>
       <Position4>
-        <Filename Value="units\SSPictureView.pas"/>
-        <Caret Line="410" Column="36" TopLine="373"/>
+        <Filename Value="packer\SpritePackerUnit.pas"/>
+        <Caret Line="767" Column="10" TopLine="745"/>
       </Position4>
       <Position5>
-        <Filename Value="units\SSPictureView.pas"/>
-        <Caret Line="419" Column="40" TopLine="383"/>
+        <Filename Value="packer\SpritePackerUnit.pas"/>
+        <Caret Line="766" Column="64" TopLine="745"/>
       </Position5>
       <Position6>
-        <Filename Value="units\SSPictureView.pas"/>
-        <Caret Line="454" Column="36" TopLine="417"/>
+        <Filename Value="packer\SpritePackerUnit.pas"/>
+        <Caret Line="767" Column="62" TopLine="749"/>
       </Position6>
       <Position7>
-        <Filename Value="units\SSPictureView.pas"/>
-        <Caret Line="503" Column="36" TopLine="466"/>
+        <Filename Value="packer\SpritePackerUnit.pas"/>
+        <Caret Line="766" Column="50" TopLine="749"/>
       </Position7>
       <Position8>
-        <Filename Value="units\SSPictureUnit.pas"/>
-        <Caret Line="297" Column="89" TopLine="289"/>
+        <Filename Value="packer\SpritePackerUnit.pas"/>
+        <Caret Line="767" Column="41" TopLine="749"/>
       </Position8>
       <Position9>
-        <Filename Value="units\SSPictureUnit.pas"/>
-        <Caret Line="323" Column="30" TopLine="289"/>
+        <Filename Value="packer\SpritePackerNodeUnit.pas"/>
+        <Caret Line="233" TopLine="219"/>
       </Position9>
       <Position10>
-        <Filename Value="units\SSPictureUnit.pas"/>
-        <Caret Line="37" Column="166" TopLine="30"/>
+        <Filename Value="packer\SpritePackerNodeUnit.pas"/>
+        <Caret Line="279" TopLine="261"/>
       </Position10>
       <Position11>
-        <Filename Value="units\SSPictureUnit.pas"/>
-        <Caret Line="323" Column="30" TopLine="287"/>
+        <Filename Value="packer\SpritePackerNodeUnit.pas"/>
+        <Caret Line="343" TopLine="324"/>
       </Position11>
       <Position12>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="23" Column="75" TopLine="10"/>
+        <Caret Line="1580" TopLine="1561"/>
       </Position12>
       <Position13>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="5" Column="118"/>
+        <Caret Line="1701" TopLine="1679"/>
       </Position13>
       <Position14>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="163" Column="49" TopLine="147"/>
+        <Caret Line="1658" Column="4" TopLine="1679"/>
       </Position14>
       <Position15>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="182" Column="25" TopLine="147"/>
+        <Caret Line="1650" Column="58" TopLine="1633"/>
       </Position15>
       <Position16>
         <Filename Value="mainformunit.pas"/>
-        <Caret Column="15"/>
+        <Caret Line="1700" Column="4" TopLine="1671"/>
       </Position16>
       <Position17>
-        <Filename Value="mainformunit.pas"/>
-        <Caret Line="182" Column="25" TopLine="147"/>
+        <Filename Value="components\rgb_graphics\rgbgraphics.pas"/>
+        <Caret Line="213" Column="56" TopLine="197"/>
       </Position17>
       <Position18>
-        <Filename Value="mainformunit.pas"/>
-        <Caret Line="431" Column="15" TopLine="395"/>
+        <Filename Value="components\rgb_graphics\rgbgraphics.pas"/>
+        <Caret Line="215" Column="28" TopLine="197"/>
       </Position18>
       <Position19>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1567" Column="31" TopLine="1530"/>
+        <Caret Line="1663" Column="71" TopLine="1653"/>
       </Position19>
       <Position20>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1572" Column="15" TopLine="1535"/>
+        <Caret Line="1664" Column="48" TopLine="1653"/>
       </Position20>
       <Position21>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1578" Column="15" TopLine="1541"/>
+        <Caret Line="6" Column="106"/>
       </Position21>
       <Position22>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1650" Column="39" TopLine="1616"/>
+        <Caret Line="1049" Column="43" TopLine="1020"/>
       </Position22>
       <Position23>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1651" Column="20" TopLine="1616"/>
+        <Caret Line="1051" Column="43" TopLine="1022"/>
       </Position23>
       <Position24>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1652" Column="20" TopLine="1616"/>
+        <Caret Line="1664" Column="48" TopLine="1635"/>
       </Position24>
       <Position25>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1653" Column="17" TopLine="1617"/>
+        <Caret Line="5" Column="104"/>
       </Position25>
       <Position26>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1576" Column="8" TopLine="1559"/>
+        <Caret Line="1049" Column="43" TopLine="1020"/>
       </Position26>
       <Position27>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1699" Column="110" TopLine="1671"/>
+        <Caret Line="1051" Column="43" TopLine="1022"/>
       </Position27>
       <Position28>
         <Filename Value="mainformunit.pas"/>
-        <Caret Line="1695" Column="14" TopLine="1671"/>
+        <Caret Line="1668" Column="52" TopLine="1674"/>
       </Position28>
       <Position29>
         <Filename Value="components\rgb_graphics\rgbgraphics.pas"/>
-        <Caret Line="214" Column="46" TopLine="195"/>
+        <Caret Line="214" Column="23" TopLine="198"/>
       </Position29>
       <Position30>
         <Filename Value="components\rgb_graphics\rgbgraphics.pas"/>
-        <Caret Line="215" Column="28" TopLine="195"/>
+        <Caret Line="215" Column="28" TopLine="198"/>
       </Position30>
     </JumpHistory>
     <RunParams>
@@ -505,4 +520,15 @@
       <Modes Count="0" ActiveMode="default"/>
     </RunParams>
   </ProjectSession>
+  <Debugging>
+    <BreakPoints Count="1">
+      <Item1>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="packer\SpritePackerNodeUnit.pas"/>
+        <Line Value="294"/>
+      </Item1>
+    </BreakPoints>
+  </Debugging>
 </CONFIG>

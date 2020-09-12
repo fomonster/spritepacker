@@ -278,7 +278,7 @@ var
   ClipRectWidth,ClipRectHeight:Integer;
   ClipRectWidthM1,ClipRectHeightM1,DDW,DDH,SrcWidth,SrcHeight,DrWidth,DrHeight:Integer; // ClipRect
   x,y:Integer;
-  ix,iy:Integer;
+  ix,iy:LongInt;
   fx,fy:Single;
   c,a,na,r,g,b,cf,cfy,srcadry,dstadry:DWord;
   //dstP,srcP:Pointer;
@@ -480,11 +480,11 @@ begin
     iy:=y*Height-_topT;
     if ((iy>=0) and (iy<DDH)) then begin
       cfy:=(y-_top);
-      srcadry:={bitmap.Width*}(iy div DrawHeight); //
+
       for x:=0 to ClipRectWidthM1 do begin
         ix:=x*Width-_leftT;
         if ((ix>=0) and (ix<DDW)) then begin
-           c:=bitmap.Get32PixelPtr(ix div DrawWidth, srcadry)^; // Берем исходный цвет
+          c:=bitmap.Get32PixelUnsafe(ix div DrawWidth, iy div DrawHeight); // Берем исходный цвет
           if c < $ff000000 then begin // если с прозрачностью
 
             // Кубики
@@ -495,14 +495,19 @@ begin
             cf:=cf or (cf shl 8) or (cf shl 16);
 
             // Смешение по прозрачности
-            BitmapCanvas.Set32Pixel(x, y, (((((c and $0000ff)*a) and $0000ff00) or (((c and $00ff00)*a) and $00ff0000) or (((c and $ff0000)*a) and $ff000000))+cf) shr 8);
+            BitmapCanvas.Set32PixelUnsafe(x, y,  ((
+                  (((c and $0000ff)*a) and $0000ff00) or
+                  (((c and $00ff00)*a) and $00ff0000) or
+                  (((c and $ff0000)*a) and $ff000000)
+                 ) + cf) shr 8);
 
           end else begin
-            BitmapCanvas.Set32Pixel(x, y, c);
+            BitmapCanvas.Set32PixelUnsafe(x, y, c);
           end;
-        end else BitmapCanvas.Set32Pixel(x, y, $ffffff);
+
+        end else BitmapCanvas.Set32PixelUnsafe(x, y, $ffffffff);
       end;
-    end else for x:=0 to ClipRectWidthM1 do BitmapCanvas.Set32Pixel(x, y, $ffffff);
+    end else for x:=0 to ClipRectWidthM1 do BitmapCanvas.Set32PixelUnsafe(x, y, $ffffffff);
   end;
 
 end;

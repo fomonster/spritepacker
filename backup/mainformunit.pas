@@ -1581,7 +1581,7 @@ begin
     _height:=spritePacker.maxHeight;
 
     //
-    {if spritePacker.clampWidthAndHeight = 0 then begin
+    if spritePacker.clampWidthAndHeight = 0 then begin
       //
       _width := 0;
       _height := 0;
@@ -1697,7 +1697,7 @@ begin
     if ( currentPage > 0 ) then filenameAddon:='_'+IntToStr(currentPage);
 
     imageFileName:=spritePacker.outputImageFileName+filenameAddon+'.'+spritePacker.outputImageFileFormat;
-    publishPic.bitmap.SaveToFileNew(imageFileName);    }
+   // publishPic.bitmap.SaveToFileNew(imageFileName);
     AddLog('Saved '+imageFileName);
 
     publishPic.Free;

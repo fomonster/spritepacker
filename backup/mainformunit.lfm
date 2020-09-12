@@ -1,7 +1,7 @@
 object MainForm: TMainForm
-  Left = 526
+  Left = 426
   Height = 585
-  Top = 149
+  Top = 100
   Width = 858
   Caption = 'Sprite Packer'
   ClientHeight = 565

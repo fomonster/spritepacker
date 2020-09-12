@@ -7,7 +7,7 @@ uses
   cthreads,
   {$ENDIF}{$ENDIF}
   Interfaces, // this includes the LCL widgetset
-  Forms, lazrichview, lazgradient, pascalscript,
+  Forms, lazrichview, pascalscript,
   MainFormUnit, SpritePackerNodeUnit, logformUnit,
   AboutFormUnit, SettingsFormUnit
   { you can add units after this };

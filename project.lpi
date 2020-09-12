@@ -30,22 +30,19 @@
         <Mode0 Name="default"/>
       </Modes>
     </RunParams>
-    <RequiredPackages Count="5">
+    <RequiredPackages Count="4">
       <Item1>
-        <PackageName Value="lazgradient"/>
+        <PackageName Value="lazrichview"/>
       </Item1>
       <Item2>
-        <PackageName Value="lazrichview"/>
+        <PackageName Value="rgb_graphics"/>
       </Item2>
       <Item3>
-        <PackageName Value="rgb_graphics"/>
+        <PackageName Value="pascalscript"/>
       </Item3>
       <Item4>
-        <PackageName Value="pascalscript"/>
-      </Item4>
-      <Item5>
         <PackageName Value="LCL"/>
-      </Item5>
+      </Item4>
     </RequiredPackages>
     <Units Count="10">
       <Unit0>
@@ -125,6 +122,9 @@
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
+      <Checks>
+        <IOChecks Value="True"/>
+      </Checks>
       <Optimizations>
         <OptimizationLevel Value="4"/>
       </Optimizations>
@@ -132,7 +132,6 @@
     <Linking>
       <Debugging>
         <GenerateDebugInfo Value="False"/>
-        <UseValgrind Value="True"/>
       </Debugging>
       <Options>
         <Win32>

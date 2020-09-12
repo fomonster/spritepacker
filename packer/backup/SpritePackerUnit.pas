@@ -767,10 +767,12 @@ begin
          items[i].filepath := newBasePath + items[i].relativepath;
       end;
     end;
+    ShowMessage('WO:'+outputDataFileName+#13+#10+ outputImageFileName);
 
     outputDataFileName := newBasePath + ExtractRelativepath(oldBasePath, outputDataFileName);
     outputImageFileName := newBasePath + ExtractRelativepath(oldBasePath, outputImageFileName);
 
+    ShowMessage('WO:'+outputDataFileName+#13+#10+ outputImageFileName);
   end else begin
 
     oldBasePath := ExtractFilePath(filename);

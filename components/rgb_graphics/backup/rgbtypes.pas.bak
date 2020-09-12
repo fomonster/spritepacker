@@ -760,7 +760,7 @@ end;
 
 function TRGB32BitmapCore.Get32PixelUnsafe(X, Y: Integer): TRGB32Pixel;
 begin
-  Result := PRGB32Pixel(GetRGBBitmapPixelPtr(Self, X, Y))^;
+  Result := GetRGBBitmapPixelPtr(Self, X, Y)^;
 end;
 
 procedure TRGB32BitmapCore.Set32PixelUnsafe(X, Y: Integer;

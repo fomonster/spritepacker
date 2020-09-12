@@ -186,28 +186,40 @@ begin
 end;
 
 {******************************************************************************}
-procedure TPictureView.Paint;
 var
   bm: TRGB32Bitmap;
+
+procedure TPictureView.Paint;
+var
+
   x, y, yh: integer;
   ct, dt: TDateTime;
   i, j, no: integer;
   //ClientRect :TRect;
   s, s1: string;
+  nw, nh:integer;
 begin
+
+  if ( (Canvas.ClipRect.Width <= 0) or (Canvas.ClipRect.Height <= 0) ) then exit;
   // Создаем буфер для прорисовки
   dx := HPos + Canvas.ClipRect.Left;
   dy := VPos + Canvas.ClipRect.Top;
 
-  bm := TRGB32Bitmap.Create(Canvas.ClipRect.Right - Canvas.ClipRect.Left + 1,Canvas.ClipRect.Bottom - Canvas.ClipRect.Top + 1);
+  nw := Canvas.ClipRect.Right - Canvas.ClipRect.Left + 1;
+  nh := Canvas.ClipRect.Bottom - Canvas.ClipRect.Top + 1;
+  if ( (bm = nil) or (bm.Width <> nw) or (bm.Height <> nh) )then begin
+     if ( bm <> nil ) then bm.Free;
+     bm := TRGB32Bitmap.Create(nw, nh);
+  end;
 
   if CurrentPicture <> nil then begin
-    CurrentPicture.View_Render(bm,ClientRect,  Canvas.ClipRect);
-  end else bm.Canvas.Fill($ffffff);
+    CurrentPicture.View_Render(bm, ClientRect,  Canvas.ClipRect);
+  end else bm.ClearWhite;
+
 
   // Заканчиваем прорисовку
   bm.Canvas.DrawTo(Canvas,Canvas.ClipRect.Left, Canvas.ClipRect.Top);
-  bm.Free;
+
 end;
 {******************************************************************************}
 
@@ -582,5 +594,10 @@ begin
 end;
 
 {******************************************************************************}
+initialization
+ bm:=nil;
+finalization
+ if ( bm<>nil) then bm.Free;
+ bm:=nil;
 end.
 {******************************************************************************}

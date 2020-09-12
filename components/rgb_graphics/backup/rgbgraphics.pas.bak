@@ -35,7 +35,7 @@ uses
   Classes, SysUtils, LCLIntf, FPWriteBMP,
   LCLType, LCLProc, FPImage, LResources, IntfGraphics,
   GraphType, Graphics, Forms, Math, Clipbrd,
-  RGBTypes, RGBRoutines, RGBUtils, FPWritePNG, libwebp;;
+  RGBTypes, RGBRoutines, RGBUtils, FPWritePNG, libwebp;
   
 
 type
@@ -656,12 +656,12 @@ begin
       pngWriter.Free;
     end;
   end else if ( ext = '.webp' ) then begin
-    SaveToWEBP(self, filename);
+   // SaveToWEBP(self, filename);
   end else if ( ext = '.dds' ) then begin
-    SaveToDDS(self,filename,1,true);
+   // SaveToDDS(self,filename,1,true);
   end else if ( ext = '.jpg' ) then begin
 
-     pic:=TPicture.Create;
+    { pic:=TPicture.Create;
      try
 
        pic.Jpeg.SetSize(Width, Height);
@@ -671,10 +671,10 @@ begin
 
      finally
        pic.Free;
-     end;
+     end;}
 
   end else if ( ext = '.bmp' ) then begin
-    bmpWriter := TLazWriterBMP.create;
+    {bmpWriter := TLazWriterBMP.create;
     bmpWriter.BitsPerPixel:=32;
     img := TLazIntfImage.Create( Width, Height, [riqfRGB, riqfAlpha]);
     try
@@ -687,7 +687,7 @@ begin
     finally
       img.Free;
       pngWriter.Free;
-    end;
+    end;  }
   end;
 end;
 
