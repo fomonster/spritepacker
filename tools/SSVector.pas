@@ -1,12 +1,9 @@
 {*******************************************************************************
 
-  Проект: SpaceSim
-  Автор: Фомин С.С.
-  Дата: 2009 год
+  Author: Fomin Sergey (fomonster@gmail.com)
+  Date: 2009
 
-  Назначение модуля:
-
-                        Vector and matrix operations
+  Vector and matrix operations for freepascal.
                         
   http://geometryalgorithms.com/Archive/algorithm_0104/algorithm_0104B.htm
   
