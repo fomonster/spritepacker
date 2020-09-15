@@ -235,7 +235,7 @@ begin
 
              // icon
              imageFileName := searchPath+ExtractFileNameWithoutExt(Info.Name)+'.png';
-             if ( FileExists( imageFileName ) ) then begin
+             if ( FileExistsUTF8( imageFileName ) ) then begin
                  if not LoadImageIntoList(imageFileName, ImageList1, imageIndex) then imageIndex:=-1;
              end;
 

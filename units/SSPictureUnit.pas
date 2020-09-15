@@ -14,7 +14,7 @@ unit SSPictureUnit;
 interface
 
 uses
-  Classes, SysUtils, SSGenericListUnit, RGBGraphics, Graphics;
+  Classes, SysUtils,  RGBGraphics, Graphics, SSGenericListUnit;
 
 const
   LAYER_BLOCK_SIZE_SHIFT = 7;
@@ -281,7 +281,7 @@ var
   ix,iy:Integer;
   fx,fy:Single;
   c,a,na,r,g,b,cf,cfy,srcadry,dstadry:DWord;
-  dstP,srcP:Pointer;
+  //dstP,srcP:Pointer;
   dstW,dstH:Integer;
 begin
   // Canvas.Width - Canvas.Height - размер области в которой нужно рисовать
@@ -320,9 +320,9 @@ begin
 
   dstW:=BitmapCanvas.Width;
   dstH:=BitmapCanvas.Height;
-  dstP:=BitmapCanvas.Pixels;
+  //dstP:=BitmapCanvas.Pixels;
 
-  srcP:=bitmap.Pixels;
+  //srcP:=bitmap.Pixels;
    {
   {$ASMMODE intel}
   asm
@@ -477,15 +477,14 @@ begin
 
  // Общий смысл асмовой вставки:
   for y:=0 to ClipRectHeightM1 do begin
-    dstadry:=BitmapCanvas.Width*y; //
     iy:=y*Height-_topT;
     if ((iy>=0) and (iy<DDH)) then begin
       cfy:=(y-_top);
-      srcadry:=bitmap.Width*(iy div DrawHeight); //
+      srcadry:={bitmap.Width*}(iy div DrawHeight); //
       for x:=0 to ClipRectWidthM1 do begin
         ix:=x*Width-_leftT;
         if ((ix>=0) and (ix<DDW)) then begin
-          c:=(bitmap.Pixels+srcadry+ix div DrawWidth)^; // Берем исходный цвет
+           c:=bitmap.Get32PixelPtr(ix div DrawWidth, srcadry)^; // Берем исходный цвет
           if c < $ff000000 then begin // если с прозрачностью
 
             // Кубики
@@ -496,15 +495,14 @@ begin
             cf:=cf or (cf shl 8) or (cf shl 16);
 
             // Смешение по прозрачности
-            (BitmapCanvas.Pixels+dstadry+x)^:=(((((c and $0000ff)*a) and $0000ff00) or (((c and $00ff00)*a) and $00ff0000) or (((c and $ff0000)*a) and $ff000000))+cf) shr 8;
+            BitmapCanvas.Set32Pixel(x, y, (((((c and $0000ff)*a) and $0000ff00) or (((c and $00ff00)*a) and $00ff0000) or (((c and $ff0000)*a) and $ff000000))+cf) shr 8);
 
           end else begin
-            (BitmapCanvas.Pixels+dstadry+x)^:=c;
-
+            BitmapCanvas.Set32Pixel(x, y, c);
           end;
-        end else (BitmapCanvas.Pixels+dstadry+x)^:=$ffffff;
+        end else BitmapCanvas.Set32Pixel(x, y, $ffffff);
       end;
-    end else for x:=0 to ClipRectWidthM1 do (BitmapCanvas.Pixels+dstadry+x)^:=$ffffff;
+    end else for x:=0 to ClipRectWidthM1 do BitmapCanvas.Set32Pixel(x, y, $ffffff);
   end;
 
 end;
@@ -619,7 +617,7 @@ procedure TSSPicture.InitRBM(_rbm:TRGB32BitMap);
   var
     i:Integer;
 begin
-  FillDWORD(_rbm.Pixels^,Height * Width, $ff000000);
+  _rbm.Canvas.Fill(TColor($ff000000));
 end;
 
 // Блендинг картинок одинакового размера
@@ -640,7 +638,7 @@ procedure TSSPicture.BlendLayerAndRBMToRBM(_layer:TSSLayer;_rbm,_destrbm:TRGB32B
     x,y,lx,ly,lx1,ly1,lx2,ly2:Integer;
     iy,ix,dstadry,srcadry:Integer;
     a,na:Integer;
-    dstadr,srcadr:DWord;
+    srcadr:DWord;
     c,cf:DWord;
     layerblock:PLayerBlock;
     px:PLayerPixel;
@@ -658,19 +656,19 @@ begin
         for y:=0 to LAYER_BLOCK_SIZE_M1 do begin
           iy:=y+_layer.Y;
           if (iy>=0) and (iy<Height) then begin
-            dstadry:=iy*Width;
+
             srcadry:=y*LAYER_BLOCK_SIZE;
             for x:=0 to LAYER_BLOCK_SIZE_M1 do begin
               ix:=x+_layer.X;
               if (ix>=0) and (ix<Width) then begin
                 px:=@layerblock^.rgba[x,y];
-                dstadr:=dstadry+ix;
+
                 srcadr:=srcadry+x;
-                c:=(_rbm.Pixels+dstadr)^;
+                c:=_rbm.Get32PixelPtr(ix, iy)^;
                 a:=1;//layerblock^.rgba[x,y].a shr 8;
                 na:=0;//255-a;
                 cf:=((DWord(px^.b) shr 8)*a and $ff00) or (DWord(px^.g and $ff00)*a and $ff0000) or ((DWord(px^.g and $ff00) shl 8)*a and $ff000000);
-                (_destrbm.Pixels+dstadr)^:=(((((c and $0000ff)*na) and $0000ff00) or (((c and $00ff00)*na) and $00ff0000) or (((c and $ff0000)*na) and $ff000000))+cf) shr 8;
+                _destrbm.Set32Pixel(ix,  iy, (((((c and $0000ff)*na) and $0000ff00) or (((c and $00ff00)*na) and $00ff0000) or (((c and $ff0000)*na) and $ff000000))+cf) shr 8);
               end;
             end;
           end;

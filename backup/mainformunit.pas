@@ -1696,8 +1696,8 @@ begin
     filenameAddon := '';
     if ( currentPage > 0 ) then filenameAddon:='_'+IntToStr(currentPage);
 
-    imageFileName:=spritePacker.outputImageFileName+filenameAddon+'.'+spritePacker.outputImageFileFormat; }
-    publishPic.bitmap.SaveToFileNew(imageFileName);
+    imageFileName:=spritePacker.outputImageFileName+filenameAddon+'.'+spritePacker.outputImageFileFormat;
+    publishPic.bitmap.SaveToFileNew(imageFileName);    }
     AddLog('Saved '+imageFileName);
 
     publishPic.Free;

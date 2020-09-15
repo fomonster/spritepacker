@@ -33,12 +33,17 @@ unit RGBTypes;
 {$ifdef LCLwin32}
  {$define RGB}
 {$endif}
+{$ifdef LCLqt}
+ {$define RGB}
+{$endif}
+{$ifdef LCLqt5}  //=== ct9999 ===========
+ {$define RGB}
+{$endif}
 
 interface
 
 uses
-  Classes, SysUtils, FPImage, IntfGraphics, Graphics, Math, LCLProc,
-  RGBUtils;
+  Classes, SysUtils, FPImage, IntfGraphics, Graphics, Math, LCLProc;
 
 type
   PRGBPixel = PByte;
@@ -70,10 +75,12 @@ type
     FWidth: Integer;
     FHeight: Integer;
     FRowPixelStride: Integer;
+    FDataOwner: Boolean;
     function GetSize: Integer;
   public
     constructor Create(AWidth, AHeight: Integer; ASizeOfPixel: Integer); virtual;
     constructor CreateAsCopy(ABitmap: TRGBBitmapCore; ASizeOfPixel: Integer); virtual;
+    constructor CreateFromData(AData: Pointer; AWidth, AHeight: Integer; ASizeOfPixel: Integer; ADataOwner: Boolean = False); virtual;
     destructor Destroy; override;
 
     procedure Assign(Source: TPersistent); override;
@@ -92,6 +99,7 @@ type
     procedure Rotate180; virtual;
     procedure Rotate270; virtual;
   public
+    property DataOwner: Boolean read FDataOwner;
     property Width: Integer read FWidth;
     property Height: Integer read FHeight;
     property Pixels: PRGBPixel read FPixels;
@@ -106,6 +114,7 @@ type
   public
     constructor Create(AWidth, AHeight: Integer); virtual;
     constructor CreateAsCopy(ABitmap: TRGBBitmapCore); virtual;
+    constructor CreateFromData(AData: Pointer; AWidth, AHeight: Integer; ADataOwner: Boolean = False); virtual;
 
     procedure LoadFromLazIntfImageAlpha(AImage: TLazIntfImage); virtual;
     procedure SaveToLazIntfImageAlpha(AImage: TLazIntfImage); virtual;
@@ -129,6 +138,7 @@ type
     constructor Create(AWidth, AHeight: Integer); virtual;
     constructor CreateAsCopy(ABitmap: TRGBBitmapCore); virtual;
     constructor CreateFromLazIntfImage(AImage: TLazIntfImage); virtual;
+    constructor CreateFromData(AData: Pointer; AWidth, AHeight: Integer; ADataOwner: Boolean = False); virtual;
 
     procedure Assign(Source: TPersistent); override;
     procedure SwapWith(ABitmap: TRGBBitmapCore); override;
@@ -162,6 +172,8 @@ type
   function ColorToRGB32Pixel(C: TColor): TRGB32Pixel;
 
 implementation
+
+uses RGBUtils;
 
 function GetRedInline(P: TRGB32Pixel): Byte; inline;
 begin
@@ -506,6 +518,7 @@ begin
   FRowPixelStride := (((AWidth * ASizeOfPixel + 3) shr 2) shl 2) div ASizeOfPixel;
   FSizeOfPixel := ASizeOfPixel;
   
+  FDataOwner := True;
 
   GetMem(FPixels, FHeight * FRowPixelStride * FSizeOfPixel);
 end;
@@ -518,14 +531,32 @@ begin
   FHeight := ABitmap.Height;
   FRowPixelStride := ABitmap.RowPixelStride;
   FSizeOfPixel := ASizeOfPixel;
+  
+  FDataOwner := True;
 
   GetMem(FPixels, FHeight * FRowPixelStride * SizeOfPixel);
   Move(ABitmap.Pixels^, FPixels^, FHeight * FRowPixelStride * SizeOfPixel);
 end;
 
+constructor TRGBBitmapCore.CreateFromData(AData: Pointer; AWidth, AHeight: Integer;
+  ASizeOfPixel: Integer; ADataOwner: Boolean);
+begin
+  inherited Create;
+  
+  FWidth := AWidth;
+  FHeight := AHeight;
+  // TODO: check on 64-bit arch.
+  // 32-bit alignment
+  FRowPixelStride := (((AWidth * ASizeOfPixel + 3) shr 2) shl 2) div ASizeOfPixel;
+  FSizeOfPixel := ASizeOfPixel;
+  FPixels := AData;
+
+  FDataOwner := ADataOwner;
+end;
+
 destructor TRGBBitmapCore.Destroy;
 begin
-  FreeMem(FPixels);
+  if FDataOwner then FreeMem(FPixels);
   inherited;
 end;
 
@@ -548,6 +579,24 @@ begin
   end
   else
     inherited Assign(Source);
+end;
+
+procedure SwapInt(var A, B: Integer);
+var
+  C: Integer;
+begin
+  C := A;
+  A := B;
+  B := C;
+end;
+
+procedure SwapPtr(var A, B: Pointer);
+var
+  C: Pointer;
+begin
+  C := A;
+  A := B;
+  B := C;
 end;
 
 procedure TRGBBitmapCore.SwapWith(ABitmap: TRGBBitmapCore);
@@ -648,6 +697,12 @@ begin
   end;
 end;
 
+constructor TRGB32BitmapCore.CreateFromData(AData: Pointer; AWidth, AHeight: Integer;
+  ADataOwner: Boolean);
+begin
+  inherited CreateFromData(AData, AWidth, AHeight, SizeOf(TRGB32Pixel), ADataOwner);
+end;
+
 procedure TRGB32BitmapCore.Assign(Source: TPersistent);
 begin
   if (Source is TRGBBitmapCore) and ((Source as TRGBBitmapCore).SizeOfPixel = SizeOf(TRGB32Pixel)) then
@@ -731,6 +786,12 @@ constructor TRGB8BitmapCore.CreateAsCopy(ABitmap: TRGBBitmapCore);
 begin
   if ABitmap.SizeOfPixel = SizeOf(TRGB8Pixel) then
     inherited CreateAsCopy(ABitmap, SizeOf(TRGB8Pixel));
+end;
+
+constructor TRGB8BitmapCore.CreateFromData(AData: Pointer; AWidth, AHeight: Integer;
+  ADataOwner: Boolean);
+begin
+  inherited CreateFromData(AData, AWidth, AHeight, SizeOf(TRGB8Pixel), ADataOwner);
 end;
 
 procedure TRGB8BitmapCore.LoadFromLazIntfImageAlpha(AImage: TLazIntfImage);

@@ -362,7 +362,7 @@ begin
           if ( ix > trimMaxX ) then trimMaxX:=ix;
           alphaY:=alpha;
         end;
-        bitmap.Pixels[ix + iy * w] := ((alpha) shl 24 ) or (color.blue shr 8) or (  (color.green shr 8)  shl 8 ) or ( (color.red shr 8 ) shl 16);
+        bitmap.Set32Pixel(ix, iy, ((alpha) shl 24 ) or (color.blue shr 8) or (  (color.green shr 8)  shl 8 ) or ( (color.red shr 8 ) shl 16));
       end;
       if ( alphaY > 0 ) then begin
         if ( iy < trimMinY ) then trimMinY:=iy;

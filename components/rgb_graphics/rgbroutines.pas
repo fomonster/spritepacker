@@ -39,6 +39,12 @@ uses
 {$IFDEF LCLwin32}
   RGBWinRoutines,
 {$ENDIF}
+{$IFDEF LCLqt}
+  RGBQtRoutines,
+{$ENDIF}
+{$IFDEF LCLqt5}   //=== ct9999 ======
+  RGBQt5Routines,
+{$ENDIF}
 {$IFDEF LCLgtk}
   {$DEFINE StretchRGB32}
   RGBGTKRoutines,
@@ -47,12 +53,18 @@ uses
   {$DEFINE StretchRGB32}
   RGBGTKRoutines,
 {$ENDIF}
+{$IFDEF LCLgtk3}
+   {$DEFINE StretchRGB32}
+    RGBGTK3Routines,
+{$ENDIF}
 {$IFDEF LCLcarbon}
   {$DEFINE StretchRGB32}
   RGBCarbonRoutines,
 {$ENDIF}
   RGBTypes, RGBUtils;
   
+  procedure DrawRGB32BitmapSpecial(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore;turn:boolean);
+  procedure DrawRGB32BitmapSpecialRect(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore; SourceRectX:integer; SourceRectY:integer; SourceRectWidth:integer; SourceRectHeight:integer; turn:Boolean);
   procedure DrawRGB32Bitmap(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore); overload;
   procedure DrawRGB8Bitmap(Dst: TRGB8BitmapCore; X, Y: Integer; Src: TRGB8BitmapCore); overload;
   procedure StretchRGB32BitmapTrunc(Dst, Src: TRGB32BitmapCore);
@@ -85,6 +97,16 @@ type
     SamePixel: TSamePixelFunction; DrawPixel: TDrawPixelProcedure);
 
 implementation
+
+function GetDCClipRect(Dest: HDC): TRect;
+begin
+  if GetClipBox(Dest, @Result) = ERROR then
+  begin
+    Result.TopLeft := Point(0, 0);
+    if not GetDeviceSize(Dest, Result.BottomRight) then
+      Result.BottomRight := Point(8000, 8000);
+  end;
+end;
 
 procedure DrawRGB32Bitmap(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore);
 var
@@ -126,6 +148,121 @@ begin
     PS := Src.Get32PixelPtrUnsafe(SrcX, SrcY + I);
     PD := Dst.Get32PixelPtrUnsafe(X, Y + I);
     Move(PS^, PD^, SrcWidth shl 2);
+  end;
+end;
+
+procedure DrawRGB32BitmapSpecial(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore; turn:Boolean);
+var
+  SrcX, SrcWidth, SrcY, SrcHeight: Integer;
+  I, J: Integer;
+  PS, PD: PRGB32Pixel;
+begin
+  if (Dst = nil) or (Src = nil) then Exit;
+  if (Dst.Width <= 0) or (Dst.Height <= 0) or (Src.Width <= 0) or (Src.Height <= 0) then Exit;
+  if (X >= Dst.Width) or (Y >= Dst.Height) then Exit;
+  if (X + Src.Width <= 0) or (Y + Src.Height <= 0) then Exit;
+
+  SrcX := 0;
+  SrcY := 0;
+  SrcWidth := Src.Width;
+  SrcHeight := Src.Height;
+
+  if X < 0 then
+  begin
+    SrcX := -X;
+    Inc(SrcWidth, X);
+    X := 0;
+  end;
+
+  if Y < 0 then
+  begin
+    SrcY := -Y;
+    Inc(SrcHeight, Y);
+    Y := 0;
+  end;
+
+  if X + SrcWidth > Dst.Width then
+    Dec(SrcWidth, X + SrcWidth - Dst.Width);
+  if Y + SrcHeight > Dst.Height then
+    Dec(SrcHeight, Y + SrcHeight - Dst.Height);
+
+  if ( turn ) then begin
+
+    for I := 0 to Pred(SrcHeight) do begin
+      for J := 0 to Pred(SrcWidth) do begin
+        PS := Src.Get32PixelPtrUnsafe(SrcX + J, SrcY + I);
+        PD := Dst.Get32PixelPtrUnsafe( X + SrcHeight - I - 1, Y + J );
+        Move(PS^, PD^, 4);
+      end;
+    end;
+
+  end else begin
+    for I := 0 to Pred(SrcHeight) do begin
+      PS := Src.Get32PixelPtrUnsafe(SrcX, SrcY + I);
+      PD := Dst.Get32PixelPtrUnsafe(X, Y + I);
+      Move(PS^, PD^, SrcWidth shl 2);
+    end;
+  end;
+end;
+
+procedure DrawRGB32BitmapSpecialRect(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore; SourceRectX:integer; SourceRectY:integer; SourceRectWidth:integer; SourceRectHeight:integer; turn:Boolean);
+var
+  SrcX, SrcWidth, SrcY, SrcHeight: Integer;
+  I, J: Integer;
+  PS, PD: PRGB32Pixel;
+begin
+  if (Dst = nil) or (Src = nil) then Exit;
+  if (Dst.Width <= 0) or (Dst.Height <= 0) or (Src.Width <= 0) or (Src.Height <= 0) then Exit;
+  if (X >= Dst.Width) or (Y >= Dst.Height) then Exit;
+  if (X + Src.Width <= 0) or (Y + Src.Height <= 0) then Exit;
+
+  SrcX := SourceRectX;
+  SrcY := SourceRectY;
+  SrcWidth := SourceRectWidth;
+  SrcHeight := SourceRectHeight;
+
+  if X < 0 then
+  begin
+    SrcX := -X;
+    Inc(SrcWidth, X);
+    X := 0;
+  end;
+
+  if Y < 0 then
+  begin
+    SrcY := -Y;
+    Inc(SrcHeight, Y);
+    Y := 0;
+  end;
+
+
+  if ( turn ) then begin
+
+    if X + SrcHeight > Dst.Width then
+      Dec(SrcHeight, X + SrcHeight - Dst.Width);
+    if Y + SrcWidth > Dst.Height then
+      Dec(SrcWidth, Y + SrcWidth - Dst.Height);
+
+    for I := 0 to Pred(SrcHeight) do begin
+      for J := 0 to Pred(SrcWidth) do begin
+        PS := Src.Get32PixelPtrUnsafe(SrcX + J, SrcY + I);
+        PD := Dst.Get32PixelPtrUnsafe( X + SrcHeight - I - 1, Y + J );
+        Move(PS^, PD^, 4);
+      end;
+    end;
+
+  end else begin
+
+    if X + SrcWidth > Dst.Width then
+      Dec(SrcWidth, X + SrcWidth - Dst.Width);
+    if Y + SrcHeight > Dst.Height then
+      Dec(SrcHeight, Y + SrcHeight - Dst.Height);
+
+    for I := 0 to Pred(SrcHeight) do begin
+      PS := Src.Get32PixelPtrUnsafe(SrcX, SrcY + I);
+      PD := Dst.Get32PixelPtrUnsafe(X, Y + I);
+      Move(PS^, PD^, SrcWidth shl 2);
+    end;
   end;
 end;
 
@@ -382,6 +519,39 @@ begin
   end;
 end;
 
+(*
+  GetDifference returns array of diffences between positions.
+*)
+function GetDifference(const A: TIntArray): TIntArray;
+var
+  I, P: Integer;
+begin
+  SetLength(Result, Length(A));
+  P := 0;
+  for I := 0 to High(A) do
+  begin
+    Result[I] := A[I] - P;
+    P := A[I];
+  end;
+end;
+
+(*
+  GetMidPoints returns array of absolute positions of the middle in each chunk.
+*)
+function GetMidPoints(const A: TIntArray): TIntArray;
+var
+  I, P, V: Integer;
+begin
+  SetLength(Result, Length(A));
+  P := 0;
+  for I := 0 to High(A) do
+  begin
+    V := A[I];
+    Result[I] := V shr 1 + P;
+    Inc(P, V);
+  end;
+end;
+
 procedure StretchRGB32BitmapTrunc(Dst: TRGB32BitmapCore;
   DstX, DstY, DstWidth, DstHeight: Integer;
   SrcX, SrcY, SrcWidth, SrcHeight: Integer; Src: TRGB32BitmapCore);
@@ -521,7 +691,9 @@ begin
   if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
   if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
   if (SrcWidth <= 0) or (SrcHeight <= 0) then Exit;
-  GetClipBox(Dest, @Clip);
+
+  Clip := GetDCClipRect(Dest);
+
   if (DstX >= Clip.Right) or (DstY >= Clip.Bottom) or
      (DstX + SrcWidth < Clip.Left) or (DstY + SrcHeight < Clip.Top) then Exit;
 
@@ -548,7 +720,9 @@ begin
   if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
   if (SrcWidth <= 0) or (SrcHeight <= 0) then Exit;
   if (DstWidth <= 0) or (DstHeight <= 0) then Exit;
-  GetClipBox(Dest, @Clip);
+
+  Clip := GetDCClipRect(Dest);
+
   if (DstX >= Clip.Right) or (DstY >= Clip.Bottom) or
      (DstX + DstWidth < Clip.Left) or (DstY + DstHeight < Clip.Top) then Exit;
 
@@ -716,7 +890,8 @@ begin
   if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
   if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
   if (DstWidth <= 0) or (DstHeight <= 0) then Exit;
-  GetClipBox(Dest, @Clip);
+
+  Clip := GetDCClipRect(Dest);
   
   ZoomX := DstWidth / Bitmap.Width;
   ZoomY := DstHeight / Bitmap.Height;
@@ -739,7 +914,9 @@ begin
   if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
   if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
   if (SrcWidth <= 0) or (SrcHeight <= 0) then Exit;
-  GetClipBox(Dest, @Clip);
+
+  Clip := GetDCClipRect(Dest);
+
   if (DstX >= Clip.Right) or (DstY >= Clip.Bottom) or
      (DstX + SrcWidth < Clip.Left) or (DstY + SrcHeight < Clip.Top) then Exit;
 

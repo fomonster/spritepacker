@@ -41,6 +41,7 @@ type
     filename:AnsiString; // Имя файла без \ (У папок пустое)
     path:AnsiString; // Относительный путь
 
+    // Что это блять?
     childsCount:integer;
     childs:array of integer;
 
@@ -82,6 +83,8 @@ type
     function loadFile:Boolean;
 
     function fullName:AnsiString;
+
+    procedure logChilds;
   end;
 
 implementation
@@ -112,6 +115,9 @@ begin
   trimMaxX:=0;
   trimMinY:=0;
   trimMaxY:=0;
+
+  SetLength(Childs, 0);
+  ChildsCount:=0;
 
   age := 0;
 end;
@@ -168,16 +174,18 @@ procedure TSpritePackerNode.SetToXML(xml:TXMLNode);
 
 var
    i:Integer;
+   j:Integer;
    node,node1,node2:TXMLNode;
 
 begin
 
-  //
+ //
  node:=xml.SubNodes_Add;
  node.Name:='node';
  node.Attribute_SetInt('typeid',typeId);
  node.Attribute_SetInt('id',Id);
  node.Attribute_SetInt('ownerId',parentId);
+
  //
  node1:=node.SubNodes_Add;
  node1.name:='params';
@@ -190,8 +198,8 @@ begin
  node2:=node.SubNodes_Add;
  node2.name:='childs';
  for i:=0 to ChildsCount-1 do begin
-   ShowMessage(TSpritePacker(owner)[Childs[i]].filepath+' '+IntToStr(ChildsCount));
-   TSpritePacker(owner)[Childs[i]].SetToXML(node2);
+   j := Childs[i];
+   TSpritePacker(owner)[j].SetToXML(node2);
  end;
 
 end;
@@ -305,6 +313,17 @@ begin
 
 end;
 
+procedure TSpritePackerNode.logChilds;
+  var
+    s:AnsiString;
+    i:integer;
+begin
+  for i:=0 to length(Childs)-1 do begin
+    s:=s+','+inttostr(Childs[i]);
+  end;
+  AddLog('> '+inttostr(length(Childs))+' - '+s);
+end;
+
 function TSpritePackerNode.loadFile:Boolean;
   var
     color:TFPColor;
@@ -343,7 +362,8 @@ begin
           if ( ix > trimMaxX ) then trimMaxX:=ix;
           alphaY:=alpha;
         end;
-        bitmap.Pixels[ix + iy * w] := ((alpha) shl 24 ) or (color.blue shr 8) or (  (color.green shr 8)  shl 8 ) or ( (color.red shr 8 ) shl 16);
+        bitmap.Set32Pixel(ix, iy, ((alpha) shl 24 ) or (color.blue shr 8) or (  (color.green shr 8)  shl 8 ) or ( (color.red shr 8 ) shl 16));
+//        Pixels[ix + iy * w] := ((alpha) shl 24 ) or (color.blue shr 8) or (  (color.green shr 8)  shl 8 ) or ( (color.red shr 8 ) shl 16);
       end;
       if ( alphaY > 0 ) then begin
         if ( iy < trimMinY ) then trimMinY:=iy;

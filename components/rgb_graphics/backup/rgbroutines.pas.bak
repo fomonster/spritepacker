@@ -20,55 +20,65 @@
 
   Abstract:
     This unit contains routines for manipulating rgb bitmaps (stretching,
-    drawing on canvas, rotating...) and for drawing primitives (lines,
+    drawing on canvas...) and for drawing primitives (lines,
     ellipses...).
 
 }
 unit RGBRoutines;
 
-{$mode objfpc}{$H+}
+{$ifdef fpc}
+  {$mode objfpc}{$H+}
+{$endif}
 
 interface
 
 uses
-  SysUtils,  LCLType, LCLProc, InterfaceBase, Interfaces, FPImage,
-  IntfGraphics, Math,
-  {$IFDEF Win32}
-  Windows,
-  {$ELSE}
-    {$IFDEF gtk2}
-    glib2, gdk2, gtk2, gtkDef, gtkProc,
-    {$DEFINE gtk}
-    {$ELSE}
-    glib, gdk, gtk, gtkDef, gtkProc,
-    {$DEFINE gtk}
-    {$ENDIF}
-  {$ENDIF}
+  SysUtils, Math, Forms, LCLIntf,
+  LCLType, LCLProc, FPImage, IntfGraphics,
   Classes,
+{$IFDEF LCLwin32}
+  RGBWinRoutines,
+{$ENDIF}
+{$IFDEF LCLqt}
+  RGBQtRoutines,
+{$ENDIF}
+{$IFDEF LCLqt5}   //=== ct9999 ======
+  RGBQt5Routines,
+{$ENDIF}
+{$IFDEF LCLgtk}
+  {$DEFINE StretchRGB32}
+  RGBGTKRoutines,
+{$ENDIF}
+{$IFDEF LCLgtk2}
+  {$DEFINE StretchRGB32}
+  RGBGTKRoutines,
+{$ENDIF}
+{$IFDEF LCLgtk3}
+   {$DEFINE StretchRGB32}
+    RGBGTK3Routines,
+{$ENDIF}
+{$IFDEF LCLcarbon}
+  {$DEFINE StretchRGB32}
+  RGBCarbonRoutines,
+{$ENDIF}
   RGBTypes, RGBUtils;
   
   procedure DrawRGB32BitmapSpecial(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore;turn:boolean);
   procedure DrawRGB32BitmapSpecialRect(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore; SourceRectX:integer; SourceRectY:integer; SourceRectWidth:integer; SourceRectHeight:integer; turn:Boolean);
-  procedure DrawRGB32Bitmap(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore);
-
+  procedure DrawRGB32Bitmap(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore); overload;
+  procedure DrawRGB8Bitmap(Dst: TRGB8BitmapCore; X, Y: Integer; Src: TRGB8BitmapCore); overload;
   procedure StretchRGB32BitmapTrunc(Dst, Src: TRGB32BitmapCore);
-
-  procedure DrawRGB32Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer; Bitmap: TRGB32BitmapCore);
-  //procedure DrawRGB32BitmapA(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer; Bitmap: TRGB32BitmapCore);
-
+  procedure StretchRGB8BitmapTrunc(Dst, Src: TRGB8BitmapCore);
+  
+  procedure DrawRGB32Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer;
+    Bitmap: TRGB32BitmapCore); overload;
   procedure StretchDrawRGB32Bitmap(Dest: HDC; DstX, DstY, DstWidth, DstHeight: Integer;
-    SrcX, SrcY, SrcWidth, SrcHeight: Integer; Bitmap: TRGB32BitmapCore);
+    SrcX, SrcY, SrcWidth, SrcHeight: Integer; Bitmap: TRGB32BitmapCore); overload;
 
-  procedure FlipHorzRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-  procedure FlipVertRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-
-  // rotate clockwise
-  procedure Rotate90CWRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-  procedure Rotate180CWRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-  procedure Rotate270CWRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-
-  procedure InvertRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-  procedure GrayscaleRGB32Bitmap(Bitmap: TRGB32BitmapCore);
+  procedure StretchDrawRGBMaskShapePortion(Dest: HDC; DstX, DstY, DstWidth, DstHeight: Integer;
+    Bitmap: TRGB8BitmapCore; DX, DY, DW, DH: Integer; BgPen: HPEN; FgPen: HPEN);
+  procedure DrawRGB8Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer;
+    Bitmap: TRGB8BitmapCore); overload;
 
 type
   TDrawPixelProcedure = procedure (X, Y: Integer) of Object;
@@ -78,7 +88,6 @@ type
   procedure LineBresenham(X1, Y1, X2, Y2: Integer; DrawPixel: TDrawPixelProcedure);
   
   procedure FillPixelRect(X1, Y1, X2, Y2: Integer; DrawPixel: TDrawPixelProcedure);
-  procedure FillPixelRow(X1, X2, Y: Integer; DrawPixel: TDrawPixelProcedure); inline;
 
   procedure NormalRectangle(X1, Y1, X2, Y2: Integer;
     DrawOutlinePixel, DrawFillPixel: TDrawPixelProcedure);
@@ -89,10 +98,20 @@ type
 
 implementation
 
+function GetDCClipRect(Dest: HDC): TRect;
+begin
+  if GetClipBox(Dest, @Result) = ERROR then
+  begin
+    Result.TopLeft := Point(0, 0);
+    if not GetDeviceSize(Dest, Result.BottomRight) then
+      Result.BottomRight := Point(8000, 8000);
+  end;
+end;
+
 procedure DrawRGB32Bitmap(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore);
 var
   SrcX, SrcWidth, SrcY, SrcHeight: Integer;
-  I, J: Integer;
+  I: Integer;
   PS, PD: PRGB32Pixel;
 begin
   if (Dst = nil) or (Src = nil) then Exit;
@@ -126,16 +145,9 @@ begin
 
   for I := 0 to Pred(SrcHeight) do
   begin
-    PS := Src.GetPixelPtrUnsafe(SrcX, SrcY + I);
-    PD := Dst.GetPixelPtrUnsafe(X, Y + I);
+    PS := Src.Get32PixelPtrUnsafe(SrcX, SrcY + I);
+    PD := Dst.Get32PixelPtrUnsafe(X, Y + I);
     Move(PS^, PD^, SrcWidth shl 2);
-    {PD := Dst.GetPixelPtrUnsafe(X, Y + I);
-    for J := 0 to SrcWidth-1 do begin
-      PBYTE(PD + (J shl 2) + 0)^ := $ff;
-      PBYTE(PD + (J shl 2) + 1)^ := $ff;
-      PBYTE(PD + (J shl 2) + 2)^ := $ff;
-      PBYTE(PD + (J shl 2) + 3)^ := $ff;
-    end; }
   end;
 end;
 
@@ -178,16 +190,16 @@ begin
 
     for I := 0 to Pred(SrcHeight) do begin
       for J := 0 to Pred(SrcWidth) do begin
-        PS := Src.GetPixelPtrUnsafe(SrcX + J, SrcY + I);
-        PD := Dst.GetPixelPtrUnsafe( X + SrcHeight - I - 1, Y + J );
+        PS := Src.Get32PixelPtrUnsafe(SrcX + J, SrcY + I);
+        PD := Dst.Get32PixelPtrUnsafe( X + SrcHeight - I - 1, Y + J );
         Move(PS^, PD^, 4);
       end;
     end;
 
   end else begin
     for I := 0 to Pred(SrcHeight) do begin
-      PS := Src.GetPixelPtrUnsafe(SrcX, SrcY + I);
-      PD := Dst.GetPixelPtrUnsafe(X, Y + I);
+      PS := Src.Get32PixelPtrUnsafe(SrcX, SrcY + I);
+      PD := Dst.Get32PixelPtrUnsafe(X, Y + I);
       Move(PS^, PD^, SrcWidth shl 2);
     end;
   end;
@@ -226,10 +238,10 @@ begin
 
   if ( turn ) then begin
 
-    if X + SrcWidth > Dst.Width then
-      Dec(SrcWidth, X + SrcWidth - Dst.Width);
-    if Y + SrcHeight > Dst.Height then
-      Dec(SrcHeight, Y + SrcHeight - Dst.Height);
+    if X + SrcHeight > Dst.Width then
+      Dec(SrcHeight, X + SrcHeight - Dst.Width);
+    if Y + SrcWidth > Dst.Height then
+      Dec(SrcWidth, Y + SrcWidth - Dst.Height);
 
     for I := 0 to Pred(SrcHeight) do begin
       for J := 0 to Pred(SrcWidth) do begin
@@ -253,12 +265,12 @@ begin
     end;
   end;
 end;
- {
-procedure DrawRGB32BitmapAA(Dst: TRGB32BitmapCore; X, Y: Integer; Src: TRGB32BitmapCore);
+
+procedure DrawRGB8Bitmap(Dst: TRGB8BitmapCore; X, Y: Integer; Src: TRGB8BitmapCore);
 var
   SrcX, SrcWidth, SrcY, SrcHeight: Integer;
   I: Integer;
-  PS, PD: PRGB32Pixel;
+  PS, PD: PRGB8Pixel;
 begin
   if (Dst = nil) or (Src = nil) then Exit;
   if (Dst.Width <= 0) or (Dst.Height <= 0) or (Src.Width <= 0) or (Src.Height <= 0) then Exit;
@@ -291,12 +303,11 @@ begin
 
   for I := 0 to Pred(SrcHeight) do
   begin
-    PS := Src.GetPixelPtrUnsafe(SrcX, SrcY + I);
-    PD := Dst.GetPixelPtrUnsafe(X, Y + I);
-    //Move(PS^, PD^, SrcWidth shl 2);
-    ZeroMemory(PD,SrcWidth shl 2);
+    PS := Src.Get8PixelPtrUnsafe(SrcX, SrcY + I);
+    PD := Dst.Get8PixelPtrUnsafe(X, Y + I);
+    Move(PS^, PD^, SrcWidth);
   end;
-end;        }
+end;
 
 procedure StretchRGB32BitmapTrunc(Dst, Src: TRGB32BitmapCore);
 var
@@ -345,8 +356,8 @@ begin
     end;
   end;
 
-  PD := Dst.Pixels;
-  PS := Src.Pixels;
+  PD := PRGB32Pixel(Dst.Pixels);
+  PS := PRGB32Pixel(Src.Pixels);
 
   for Y := 0 to High(Rows) do
   begin
@@ -403,13 +414,151 @@ begin
   end;
 end;
 
+procedure StretchRGB8BitmapTrunc(Dst, Src: TRGB8BitmapCore);
+var
+  Cols: TIntArray;
+  Rows: TIntArray;
+  X, Y, PX, TX, OX, PY, TY, OY: Integer;
+  I: Integer;
+  PD, PS, PDLine, PSLine: PRGB8Pixel;
+  DstDataWidth, DstDataHeight: Integer;
+  SrcDataWidth, SrcDataHeight: Integer;
+  SrcRowPixelStride, DstRowPixelStride: Integer;
+begin
+  DstDataWidth := Dst.Width;
+  DstDataHeight := Dst.Height;
+  SrcDataWidth := Src.Width;
+  SrcDataHeight := Src.Height;
+  SrcRowPixelStride := Src.RowPixelStride;
+  DstRowPixelStride := Dst.RowPixelStride;
+
+  Cols := DivideTrunc(SrcDataWidth, DstDataWidth);
+  Rows := DivideTrunc(SrcDataHeight, DstDataHeight);
+
+  if DstDataWidth <= SrcDataWidth then
+  begin
+    PX := 0;
+    OX := 0;
+    for X := 0 to High(Cols) do
+    begin
+      TX := Cols[X];
+      Cols[X] := (PX + TX shr 1) - OX;
+      OX := (PX + TX shr 1);
+      Inc(PX, TX);
+    end;
+  end;
+
+  if DstDataHeight <= SrcDataHeight then
+  begin
+    PY := 0;
+    OY := 0;
+    for Y := 0 to High(Rows) do
+    begin
+      TY := Rows[Y];
+      Rows[Y] := (PY + Rows[Y] shr 1) - OY;
+      OY := (PY + TY shr 1);
+      Inc(PY, TY);
+    end;
+  end;
+
+  PD := PRGB8Pixel(Dst.Pixels);
+  PS := PRGB8Pixel(Src.Pixels);
+
+  for Y := 0 to High(Rows) do
+  begin
+    if DstDataHeight <= SrcDataHeight then
+    begin
+      Inc(PS, Rows[Y] * SrcRowPixelStride);
+    end;
+
+    PDLine := PD;
+    PSLine := PS;
+
+    if DstDataWidth > SrcDataWidth then
+    begin
+      for X := 0 to High(Cols) do
+      begin
+        if Cols[X] = 1 then
+        begin
+          PDLine^ := PSLine^;
+          Inc(PDLine);
+        end
+        else
+        begin
+          FillByte(PDLine^, Cols[X], PSLine^);
+          Inc(PDLine, Cols[X]);
+        end;
+        Inc(PSLine);
+      end;
+    end
+    else
+    begin
+      for X := 0 to High(Cols) do
+      begin
+        Inc(PSLine, Cols[X]);
+        PDLine^ := PSLine^;
+        Inc(PDLine);
+      end;
+    end;
+
+    if DstDataHeight > SrcDataHeight then
+    begin
+      PDLine := PD;
+      Inc(PD, DstRowPixelStride);
+      for I := 2 to Rows[Y] do
+      begin
+        Move(PDLine^, PD^, DstDataWidth);
+        Inc(PD, DstRowPixelStride);
+      end;
+      Inc(PS, SrcRowPixelStride);
+    end
+    else
+    begin
+      Inc(PD, DstRowPixelStride);
+    end;
+  end;
+end;
+
+(*
+  GetDifference returns array of diffences between positions.
+*)
+function GetDifference(const A: TIntArray): TIntArray;
+var
+  I, P: Integer;
+begin
+  SetLength(Result, Length(A));
+  P := 0;
+  for I := 0 to High(A) do
+  begin
+    Result[I] := A[I] - P;
+    P := A[I];
+  end;
+end;
+
+(*
+  GetMidPoints returns array of absolute positions of the middle in each chunk.
+*)
+function GetMidPoints(const A: TIntArray): TIntArray;
+var
+  I, P, V: Integer;
+begin
+  SetLength(Result, Length(A));
+  P := 0;
+  for I := 0 to High(A) do
+  begin
+    V := A[I];
+    Result[I] := V shr 1 + P;
+    Inc(P, V);
+  end;
+end;
+
 procedure StretchRGB32BitmapTrunc(Dst: TRGB32BitmapCore;
   DstX, DstY, DstWidth, DstHeight: Integer;
   SrcX, SrcY, SrcWidth, SrcHeight: Integer; Src: TRGB32BitmapCore);
 var
   Cols: TIntArray;
   Rows: TIntArray;
-  X, Y, PX, TX, OX, PY, TY, OY: Integer;
+  X, Y: Integer;
   SX, SY, DX, DY: Integer;
   I, J, C: Integer;
   PD, PS, PDLine, PSLine: PRGB32Pixel;
@@ -428,33 +577,13 @@ begin
   Rows := DivideTrunc(SrcHeight, DstHeight);
 
   if DstWidth <= SrcWidth then
-  begin
-    PX := 0;
-    OX := 0;
-    for X := 0 to High(Cols) do
-    begin
-      TX := Cols[X];
-      Cols[X] := (PX + TX shr 1) - OX;
-      OX := (PX + TX shr 1);
-      Inc(PX, TX);
-    end;
-  end;
+    Cols := GetDifference(GetMidPoints(Cols));
 
   if DstHeight <= SrcHeight then
-  begin
-    PY := 0;
-    OY := 0;
-    for Y := 0 to High(Rows) do
-    begin
-      TY := Rows[Y];
-      Rows[Y] := (PY + Rows[Y] shr 1) - OY;
-      OY := (PY + TY shr 1);
-      Inc(PY, TY);
-    end;
-  end;
+    Rows := GetDifference(GetMidPoints(Rows));
 
-  PD := Dst.GetPixelPtrUnsafe(DstX, DstY);
-  PS := Src.GetPixelPtrUnsafe(SrcX, SrcY);
+  PD := Dst.Get32PixelPtrUnsafe(DstX, DstY);
+  PS := Src.Get32PixelPtrUnsafe(SrcX, SrcY);
 
   DY := DstY;
   SY := SrcY;
@@ -558,17 +687,13 @@ procedure DrawRGB32Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, 
   Bitmap: TRGB32BitmapCore);
 var
   Clip: TRect;
-{$IFDEF Win32}
-  Info: BITMAPINFO;
-{$ENDIF}
-{$IFDEF gtk}
-  P: TPoint;
-{$ENDIF}
 begin
   if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
   if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
   if (SrcWidth <= 0) or (SrcHeight <= 0) then Exit;
-  Widgetset.GetClipBox(Dest, @Clip);
+
+  Clip := GetDCClipRect(Dest);
+
   if (DstX >= Clip.Right) or (DstY >= Clip.Bottom) or
      (DstX + SrcWidth < Clip.Left) or (DstY + SrcHeight < Clip.Top) then Exit;
 
@@ -577,115 +702,27 @@ begin
   ClipDimension(Clip.Left, Clip.Right, DstX, SrcX, SrcWidth);
   ClipDimension(Clip.Top, Clip.Bottom, DstY, SrcY, SrcHeight);
 
-  {$IFDEF Win32}
-  with Info.bmiHeader do
-  begin
-    biSize := SizeOf(BITMAPINFOHEADER);
-    biWidth := Bitmap.Width;
-    biHeight := Bitmap.Height;
-    biPlanes := 1;
-    biBitCount := 32;
-    biCompression := BI_RGB;
-    biSizeImage := 0;
-    biClrImportant := 0;
-  end;
-
-  SetStretchBltMode(Dest, COLORONCOLOR);
-  StretchDIBits(Dest, DstX, Pred(DstY + SrcHeight), SrcWidth, -SrcHeight,
-    SrcX, SrcY, SrcWidth, SrcHeight, Bitmap.Pixels, Info, DIB_RGB_COLORS, SRCCOPY);
-  {$ENDIF}
-
-  {$IFDEF gtk}
-  P := GetDCOffset(TDeviceContext(Dest));
-  Inc(DstX, P.X);
-  Inc(DstY, P.Y);
-
-  gdk_draw_rgb_32_image(TDeviceContext(Dest).Drawable, TDeviceContext(Dest).GC,
-    DstX, DstY, SrcWidth, SrcHeight, GDK_RGB_DITHER_NONE,
-    Pguchar(Bitmap.GetPixelPtrUnsafe(SrcX, SrcY)), Bitmap.RowPixelStride shl 2);
-  {$ENDIF}
+  WidgetSetDrawRGB32Bitmap(Dest, DstX, DstY, SrcX, SrcY, SrcWidth, SrcHeight, Bitmap);
 end;
 
 // ! SrcX < 0, SrcY < 0, SrcX + SrcWidth > Bitmap.Width, SrcY + SrcHeight > Bitmap.Height
 // ! results in mash
-procedure DrawRGB32BitmapA(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer;
-  Bitmap: TRGB32BitmapCore);
-var
-  Clip: TRect;
-{$IFDEF Win32}
-  Info: BITMAPINFO;
-{$ENDIF}
-{$IFDEF gtk}
-  P: TPoint;
-{$ENDIF}
-begin
-  if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
-  if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
-  if (SrcWidth <= 0) or (SrcHeight <= 0) then Exit;
-  Widgetset.GetClipBox(Dest, @Clip);
-  if (DstX >= Clip.Right) or (DstY >= Clip.Bottom) or
-     (DstX + SrcWidth < Clip.Left) or (DstY + SrcHeight < Clip.Top) then Exit;
-
-  // clipping:
-
-  ClipDimension(Clip.Left, Clip.Right, DstX, SrcX, SrcWidth);
-  ClipDimension(Clip.Top, Clip.Bottom, DstY, SrcY, SrcHeight);
-
-  {$IFDEF Win32}
-  with Info.bmiHeader do
-  begin
-    biSize := SizeOf(BITMAPINFOHEADER);
-    biWidth := Bitmap.Width;
-    biHeight := Bitmap.Height;
-    biPlanes := 1;
-    biBitCount := 32;
-    biCompression := BI_RGB;
-    biSizeImage := 0;
-    biClrImportant := 0;
-  end;
-
-  SetStretchBltMode(Dest, COLORONCOLOR);
-  StretchDIBits(Dest, DstX, Pred(DstY + SrcHeight), SrcWidth, -SrcHeight,
-    SrcX, SrcY, SrcWidth, SrcHeight, Bitmap.Pixels, Info, DIB_RGB_COLORS,SRCCOPY);
-  {$ENDIF}
-
-  {$IFDEF gtk}
-  P := GetDCOffset(TDeviceContext(Dest));
-  Inc(DstX, P.X);
-  Inc(DstY, P.Y);
-
-  gdk_draw_rgb_32_image(TDeviceContext(Dest).Drawable, TDeviceContext(Dest).GC,
-    DstX, DstY, SrcWidth, SrcHeight, GDK_RGB_DITHER_NONE,
-    Pguchar(Bitmap.GetPixelPtrUnsafe(SrcX, SrcY)), Bitmap.RowPixelStride shl 2);
-  {$ENDIF}
-end;
-// ! SrcX < 0, SrcY < 0, SrcX + SrcWidth > Bitmap.Width, SrcY + SrcHeight > Bitmap.Height
-// ! results in mash
-{$DEFINE StretchRGB32}
-{$IFDEF Win32}
-{$UNDEF StretchRGB32}
-{$ENDIF}
-procedure StretchDrawRGB32Bitmap(Dest: HDC; DstX, DstY, DstWidth, DstHeight: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer; Bitmap: TRGB32BitmapCore);
+procedure StretchDrawRGB32Bitmap(Dest: HDC; DstX, DstY, DstWidth, DstHeight: Integer;
+  SrcX, SrcY, SrcWidth, SrcHeight: Integer; Bitmap: TRGB32BitmapCore);
 var
   Clip: TRect;
 {$IFDEF StretchRGB32}
-  {$IFDEF gtk}
-  P: TPoint;
-  {$ENDIF}
   Temp: TRGB32BitmapCore;
   X, Y, W, H: Integer;
-{$ELSE}
-  {$IFDEF Win32}
-  Info: BITMAPINFO;
-  {$ENDIF}
 {$ENDIF}
-
 begin
   if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
   if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
   if (SrcWidth <= 0) or (SrcHeight <= 0) then Exit;
   if (DstWidth <= 0) or (DstHeight <= 0) then Exit;
-  Widgetset.GetClipBox(Dest, @Clip);
+
+  Clip := GetDCClipRect(Dest);
+
   if (DstX >= Clip.Right) or (DstY >= Clip.Bottom) or
      (DstX + DstWidth < Clip.Left) or (DstY + DstHeight < Clip.Top) then Exit;
 
@@ -711,189 +748,184 @@ begin
     Temp.Free;
   end;
   {$ELSE}
-  with Info.bmiHeader do
-  begin
-    biSize := SizeOf(BITMAPINFOHEADER);
-    biWidth := Bitmap.Width;
-    biHeight := Bitmap.Height;
-    biPlanes := 1;
-    biBitCount := 32;
-    biCompression := BI_RGB;
-    biSizeImage := 0;
-    biClrImportant := 0;
-  end;
-
-  SetStretchBltMode(Dest, COLORONCOLOR);
-  StretchDIBits(Dest, DstX, Pred(DstY + DstHeight), DstWidth, -DstHeight, SrcX, SrcY,
-    SrcWidth, SrcHeight, Bitmap.Pixels, Info, DIB_RGB_COLORS, SRCCOPY);
+    WidgetSetStretchDrawRGB32Bitmap(Dest, DstX, DstY, DstWidth, DstHeight,
+      SrcX, SrcY, SrcWidth, SrcHeight, Bitmap);
   {$ENDIF}
 end;
 
-procedure FlipHorzRGB32Bitmap(Bitmap: TRGB32BitmapCore);
+procedure StretchDrawRGBMaskShapePortion(Dest: HDC; DstX, DstY, DstWidth, DstHeight: Integer;
+    Bitmap: TRGB8BitmapCore; DX, DY, DW, DH: Integer; BgPen: HPEN; FgPen: HPEN);
 var
-  X, Y: Integer;
-  PNew, POld: PRGB32Pixel;
-  Temp: TRGB32Pixel;
-begin
-  for Y := 0 to Pred(Bitmap.Height) do
+  ZoomX, ZoomY: Single;
+  Clip: TRect;
+  
+  procedure DrawMask(SX, SY, EX, EY: Integer);
+  var
+    X, Y: Integer;
+    P: PRGB8Pixel;
+    V1, V2: TRGB8Pixel;
+    A, B, C: Integer;
+    Temp: HGDIOBJ;
   begin
-    PNew := Bitmap.GetPixelPtrUnsafe(0, Y);
-    POld := Bitmap.GetPixelPtrUnsafe(Pred(Bitmap.Width), Y);
-    for X := 0 to Pred(Bitmap.Width shr 1) do
-    begin
-      Temp := PNew^;
-      PNew^ := POld^;
-      POld^ := Temp;
-      Inc(PNew);
-      Dec(POld);
-    end;
-  end;
-end;
-
-procedure FlipVertRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-var
-  X, Y: Integer;
-  PNew, POld: PRGB32Pixel;
-  Temp: TRGB32Pixel;
-begin
-  for Y := 0 to Pred(Bitmap.Height shr 1) do
-  begin
-    PNew := Bitmap.GetPixelPtrUnsafe(0, Y);
-    POld := Bitmap.GetPixelPtrUnsafe(0, Pred(Bitmap.Height) - Y);
-    for X := 0 to Pred(Bitmap.Width) do
-    begin
-      Temp := PNew^;
-      PNew^ := POld^;
-      POld^ := Temp;
-      Inc(PNew);
-      Inc(POld);
-    end;
-  end;
-end;
-
-procedure Rotate90CWRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-var
-  X, Y: Integer;
-  PNew, POld: PRGB32Pixel;
-  RowPixelStride: Integer;
-  Result: TRGB32BitmapCore;
-begin
-  Result := TRGB32BitmapCore.Create(Bitmap.Height, Bitmap.Width);
-  try
-    RowPixelStride := Result.RowPixelStride;
-    for Y := 0 to Pred(Bitmap.Height) do
-    begin
-      PNew := Result.GetPixelPtrUnsafe(Pred(Bitmap.Height) - Y, 0);
-      POld := Bitmap.GetPixelPtrUnsafe(0, Y);
-      for X := 0 to Pred(Bitmap.Width) do
+    if EX >= Bitmap.Width then EX := Pred(Bitmap.Width);
+    if EY >= Bitmap.Height then EY := Pred(Bitmap.Height);
+    
+    Temp := SelectObject(Dest, BgPen);
+    try
+      for Y := SY to EY do
       begin
-        PNew^ := POld^;
-        Inc(PNew, RowPixelStride);
-        Inc(POld);
+        if Pred(SX) >= 0 then V2 := Bitmap.Get8PixelPtr(Pred(SX), Y)^
+        else V2 := 0;
+        P := Bitmap.Get8PixelPtr(SX, Y);
+        for X := Pred(SX) to EX do
+        begin
+          V1 := V2;
+          if X < Pred(Bitmap.Width) then V2 := P^
+          else V2 := 0;
+
+          if (V1 = $FF) and (V2 <> $FF) then
+          begin
+            A := DstX + Round(Succ(X) * ZoomX);
+            B := DstY + Round(Y * ZoomY);
+            C := DstY + Round(Succ(Y) * ZoomY);
+
+            if ((X + Y) and $1) > 0 then
+            begin
+              SelectObject(Dest, BgPen);
+              MoveToEx(Dest, A, B, nil);
+              LineTo(Dest, A, C);
+            end
+            else
+            begin
+              SelectObject(Dest, FgPen);
+              MoveToEx(Dest, A, B, nil);
+              LineTo(Dest, A, C);
+            end;
+          end
+          else
+            if (V1 <> $FF) and (V2 = $FF) then
+            begin
+              A := DstX + Round(Succ(X) * ZoomX);
+              B := DstY + Round(Y * ZoomY);
+              C := DstY + Round(Succ(Y) * ZoomY);
+
+              if ((X + Y) and $1) > 0 then
+              begin
+                SelectObject(Dest, BgPen);
+                MoveToEx(Dest, A - 1, B, nil);
+                LineTo(Dest, A - 1, C);
+              end
+              else
+              begin
+                SelectObject(Dest, FgPen);
+                MoveToEx(Dest, A - 1, B, nil);
+                LineTo(Dest, A - 1, C);
+              end;
+            end;
+
+          Inc(P);
+        end;
       end;
-    end;
-    Bitmap.ReplaceWith(Result);
-  except
-    FreeAndNil(Result);
-  end;
-end;
 
-
-procedure Rotate180CWRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-var
-  X, Y: Integer;
-  PNew, POld: PRGB32Pixel;
-  Temp: TRGB32Pixel;
-begin
-  for Y := 0 to Pred(Bitmap.Height shr 1) do
-  begin
-    PNew := Bitmap.GetPixelPtrUnsafe(0, Y);
-    POld := Bitmap.GetPixelPtrUnsafe(Pred(Bitmap.Width), Pred(Bitmap.Height) - Y);
-    for X := 0 to Pred(Bitmap.Width) do
-    begin
-      Temp := PNew^;
-      PNew^ := POld^;
-      POld^ := Temp;
-      Inc(PNew);
-      Dec(POld);
-    end;
-  end;
-  if Odd(Bitmap.Height) then
-  begin
-    PNew := Bitmap.GetPixelPtrUnsafe(0, Bitmap.Height shr 1);
-    POld := Bitmap.GetPixelPtrUnsafe(Pred(Bitmap.Width), Bitmap.Height shr 1);
-    for X := 0 to Pred(Bitmap.Width shr 1) do
-    begin
-      Temp := PNew^;
-      PNew^ := POld^;
-      POld^ := Temp;
-      Inc(PNew);
-      Dec(POld);
-    end;
-  end;
-end;
-
-procedure Rotate270CWRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-var
-  X, Y: Integer;
-  PNew, POld: PRGB32Pixel;
-  RowPixelStride: Integer;
-  Result: TRGB32BitmapCore;
-begin
-  Result := TRGB32BitmapCore.Create(Bitmap.Height, Bitmap.Width);
-  try
-    RowPixelStride := Result.RowPixelStride;
-    for Y := 0 to Pred(Bitmap.Height) do
-    begin
-      PNew := Result.GetPixelPtrUnsafe(Y, Pred(Bitmap.Width));
-      POld := Bitmap.GetPixelPtrUnsafe(0, Y);
-      for X := 0 to Pred(Bitmap.Width) do
+      for X := SX to EX do
       begin
-        PNew^ := POld^;
-        Dec(PNew, RowPixelStride);
-        Inc(POld);
+        if Pred(SY) >= 0 then V2 := Bitmap.Get8PixelPtr(X, Pred(SY))^
+        else V2 := 0;
+        P := Bitmap.Get8PixelPtr(X, SY);
+        for Y := Pred(SY) to EY do
+        begin
+          V1 := V2;
+          if Y < Pred(Bitmap.Height) then V2 := P^
+          else V2 := 0;
+
+          if (V1 = $FF) and (V2 <> $FF) then
+          begin
+            A := DstX + Round(X * ZoomX);
+            B := DstX + Round(Succ(X) * ZoomX);
+            C := DstY + Round(Succ(Y) * ZoomY);
+
+            if ((X + Y) and $1) > 0 then
+            begin
+              SelectObject(Dest, BgPen);
+              MoveToEx(Dest, A, C, nil);
+              LineTo(Dest, B, C);
+            end
+            else
+            begin
+              SelectObject(Dest, FgPen);
+              MoveToEx(Dest, A, C, nil);
+              LineTo(Dest, B, C);
+            end;
+          end
+          else
+            if (V1 <> $FF) and (V2 = $FF) then
+            begin
+              A := DstX + Round(X * ZoomX);
+              B := DstX + Round(Succ(X) * ZoomX);
+              C := DstY + Round(Succ(Y) * ZoomY);
+
+              if ((X + Y) and $1) > 0 then
+              begin
+                SelectObject(Dest, BgPen);
+                MoveToEx(Dest, A, C - 1, nil);
+                LineTo(Dest, B, C - 1);
+              end
+              else
+              begin
+                SelectObject(Dest, FgPen);
+                MoveToEx(Dest, A, C - 1, nil);
+                LineTo(Dest, B, C - 1);
+              end;
+            end;
+
+          Inc(P, Bitmap.RowPixelStride);
+        end;
       end;
+    finally
+      SelectObject(Dest, Temp);
     end;
-    Bitmap.ReplaceWith(Result);
-  except
-    FreeAndNil(Result);
   end;
+  
+begin
+  if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
+  if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
+  if (DstWidth <= 0) or (DstHeight <= 0) then Exit;
+
+  Clip := GetDCClipRect(Dest);
+  
+  ZoomX := DstWidth / Bitmap.Width;
+  ZoomY := DstHeight / Bitmap.Height;
+  
+  if (Floor(DstX + DX * ZoomX) >= Clip.Right) or
+     (Floor(DstY + DY * ZoomY) >= Clip.Bottom) or
+     (Ceil(DstX + (DX + DW) * ZoomX) < Clip.Left) or
+     (Ceil(DstY + (DY + DH) * ZoomY) < Clip.Top) then Exit;
+
+  DrawMask(DX, DY, Pred(DX + DW), Pred(DY + DH));
 end;
 
-procedure InvertRGB32Bitmap(Bitmap: TRGB32BitmapCore);
+// ! SrcX < 0, SrcY < 0, SrcX + SrcWidth > Bitmap.Width, SrcY + SrcHeight > Bitmap.Height
+// ! results in mash
+procedure DrawRGB8Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer;
+  Bitmap: TRGB8BitmapCore);
 var
-  X, Y: Integer;
-  P: PRGB32Pixel;
+  Clip: TRect;
 begin
-  for Y := 0 to Pred(Bitmap.Height) do
-  begin
-    P := Bitmap.GetPixelPtr(0, Y);
-    for X := 0 to Pred(Bitmap.Width) do
-    begin
-      P^ := $FFFFFF - P^;
-      Inc(P);
-    end;
-  end;
-end;
+  if (Bitmap = nil) or (Bitmap.Pixels = nil) then Exit;
+  if (Bitmap.Width <= 0) or (Bitmap.Height <= 0) then Exit;
+  if (SrcWidth <= 0) or (SrcHeight <= 0) then Exit;
 
-procedure GrayscaleRGB32Bitmap(Bitmap: TRGB32BitmapCore);
-var
-  X, Y: Integer;
-  P: PRGB32Pixel;
-  S: Byte;
-begin
-  for Y := 0 to Pred(Bitmap.Height) do
-  begin
-    P := Bitmap.GetPixelPtr(0, Y);
-    for X := 0 to Pred(Bitmap.Width) do
-    begin
-      // R * 0.3 + G * 0.59 + B * 0.11
-      S := Min(255, Round(GetRedInline(P^) * 0.3  + GetGreenInline(P^) * 0.59 +
-        GetBlueInline(P^) * 0.11));
-      P^ := RGBToRGB32PixelInline(S, S, S);
-      Inc(P);
-    end;
-  end;
+  Clip := GetDCClipRect(Dest);
+
+  if (DstX >= Clip.Right) or (DstY >= Clip.Bottom) or
+     (DstX + SrcWidth < Clip.Left) or (DstY + SrcHeight < Clip.Top) then Exit;
+
+  // clipping:
+
+  ClipDimension(Clip.Left, Clip.Right, DstX, SrcX, SrcWidth);
+  ClipDimension(Clip.Top, Clip.Bottom, DstY, SrcY, SrcHeight);
+
+  WidgetSetDrawRGB8Bitmap(Dest, DstX, DstY, SrcX, SrcY, SrcWidth, SrcHeight, Bitmap);
 end;
 
 (*
@@ -975,7 +1007,7 @@ begin
     for X := X1 to X2 do DrawPixel(X, Y);
 end;
 
-procedure FillPixelRow(X1, X2, Y: Integer; DrawPixel: TDrawPixelProcedure);
+procedure FillPixelRow(X1, X2, Y: Integer; DrawPixel: TDrawPixelProcedure); inline;
 var
   X: Integer;
 begin
@@ -1198,7 +1230,7 @@ begin
     StackCount := 0;
 
     SetLength(Visited, W * H);
-    FillByte(Visited[0], Length(Visited), 0);
+    FillChar(Visited[0], Length(Visited), #0);
 
     Push(X, Y);
     repeat
@@ -1210,7 +1242,7 @@ begin
       EX := X;
       while (EX < Pred(W)) and CheckPixel(Succ(EX), Y) do Inc(EX);
 
-      FillByte(Visited[SX + Y * W], Succ(EX - SX), 1);
+      FillChar(Visited[SX + Y * W], Succ(EX - SX), #1);
       FillPixelRow(SX, EX, Y, DrawPixel);
 
       Added := False;
@@ -1239,10 +1271,6 @@ begin
   end;
 end;
 
-initialization
-  {$IFDEF gtk}
-  gdk_rgb_init;
-  {$ENDIF}
 
 end.
 

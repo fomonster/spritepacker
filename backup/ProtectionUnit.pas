@@ -611,27 +611,28 @@ end;  }
 
 initialization
 
+  ShowMessage('wow');            
   // Set CryptoKey1
   // Создаем ключ для расшифрования строк с путями к реестру
   //InputBox('Sec','Key',md5x4('Special internal sergey key that not allowed to know!'));
-  //CryptoKey1:='8ED1E6B07D07D8F0B86B86CDA87CCF97';
+  CryptoKey1:='8ED1E6B07D07D8F0B86B86CDA87CCF97';
 
   // Расшифровываем ветки реестра
   //InputBox('Sec','Key',EncryptString('Software\SpritePacker\',CryptoKey1));
-  //ProgramRegKey:=DecryptString('xqOUauLOsVln+0tKuRtAVtaYhnetJJwRvVIxBIIS//lBmMukiyQygmIVafPGJuVpnL4k7mfe',CryptoKey1);
+  ProgramRegKey:=DecryptString('xqOUauLOsVln+0tKuRtAVtaYhnetJJwRvVIxBIIS//lBmMukiyQygmIVafPGJuVpnL4k7mfe',CryptoKey1);
 
   //InputBox('Sec','Key',EncryptString('Software\Classes\SpHelper\',CryptoKey1));
-  //SeqProgramRegKey:=DecryptString('+k3L0LM37ARadCfcaEKS3S0UgA69wqHlo2SlNNw2+lUKoBL7AVwK2gcD/5XcLrwm3rRkb5y+JO5n3g==',CryptoKey1);
+  SeqProgramRegKey:=DecryptString('+k3L0LM37ARadCfcaEKS3S0UgA69wqHlo2SlNNw2+lUKoBL7AVwK2gcD/5XcLrwm3rRkb5y+JO5n3g==',CryptoKey1);
 
   // Расшифровываем ключ 2 - секретная командная строка
   //  InputBox('Sec','Key',EncryptString('It is not a secret, that i love my mother. And sister. And wife!',CryptoKey1));
-  //CryptoKey2:=DecryptString('puqP+XPJWsaRx7CyPmI3z/gd3OkS6QQdSVV9EJW2yRdoPTCNQb1OYrR2GD/afg67tpqHHbEJm9zK0BuaHRyfQS/rVdYrK4ecyfXxYioe3s3SypDyKpLRInhJxgQLoaa6',CryptoKey1);
+  CryptoKey2:=DecryptString('puqP+XPJWsaRx7CyPmI3z/gd3OkS6QQdSVV9EJW2yRdoPTCNQb1OYrR2GD/afg67tpqHHbEJm9zK0BuaHRyfQS/rVdYrK4ecyfXxYioe3s3SypDyKpLRInhJxgQLoaa6',CryptoKey1);
 
   // CryptoKey3 = 3A9F562B8DF4A16A70F62E9FABB46886 - Хеш CryptoKey2
- // CryptoKey3:=md5x4(CryptoKey2);
+  CryptoKey3:=md5x4(CryptoKey2);
 
   // Это ключ шифрования данных в реестре (привязан к серийному номеру жесткого диска)
-  //CryptoKey4:=md5x4(GetHardDiskSerial(paramstr(0)[1])+CryptoKey3);
+  CryptoKey4:=md5x4(GetHardDiskSerial(paramstr(0)[1])+CryptoKey3);
 
 finalization
 

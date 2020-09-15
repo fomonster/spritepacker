@@ -1,6 +1,6 @@
 {
  /***************************************************************************
-                                RGBGTKRoutines.pas
+                                RGBCarbonRoutines.pas
 
 
  ***************************************************************************/
@@ -19,10 +19,10 @@
   Author:  Tom Gregorovic (_tom_@centrum.cz)
 
   Abstract:
-    This unit contains routines for GTK interfaces.
+    This unit contains routines for Carbon interface.
 
 }
-unit RGBGTKRoutines;
+unit RGBCarbonRoutines;
 
 {$ifdef fpc}
   {$mode objfpc}{$H+}
@@ -32,13 +32,7 @@ interface
 
 uses
   SysUtils, Classes, LCLType,
-{$IFDEF LCLgtk2}
-  glib2, gdk2, gtk2,
-{$ENDIF}
-{$IFDEF LCLgtk}
-  glib, gdk, gtk,
-{$ENDIF}
-  gtkDef, gtkProc,
+  FPCMacOSAll, CarbonProc, CarbonGDIObjects, CarbonCanvas,
   RGBTypes, RGBUtils;
   
   procedure WidgetSetDrawRGB32Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth, SrcHeight: Integer;
@@ -52,49 +46,41 @@ implementation
 procedure WidgetSetDrawRGB32Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY, SrcWidth,
   SrcHeight: Integer; Bitmap: TRGB32BitmapCore);
 var
-  P: TPoint;
+  CGImage: CGImageRef;
+  CarbonBitmap: TCarbonBitmap;
 begin
-  {$IFDEF GTK_POST_0924}
-  P := TGtkDeviceContext(Dest).Offset;
-  Inc(DstX, P.X);
-  Inc(DstY, P.Y);
-  gdk_draw_rgb_32_image(TGtkDeviceContext(Dest).Drawable, TGtkDeviceContext(Dest).GC,
-    DstX, DstY, SrcWidth, SrcHeight, GDK_RGB_DITHER_NONE,
-    Pguchar(Bitmap.GetPixelPtrUnsafe(SrcX, SrcY)), Bitmap.RowPixelStride shl 2);
-  {$ELSE}
-  P := GetDCOffset(TGtkDeviceContext(Dest));
-  Inc(DstX, P.X);
-  Inc(DstY, P.Y);
-  gdk_draw_rgb_32_image(TDeviceContext(Dest).Drawable, TDeviceContext(Dest).GC,
-    DstX, DstY, SrcWidth, SrcHeight, GDK_RGB_DITHER_NONE,
-    Pguchar(Bitmap.GetPixelPtrUnsafe(SrcX, SrcY)), Bitmap.RowPixelStride shl 2);
-  {$ENDIF}
+  if not CheckDC(Dest, 'WidgetSetDrawRGB32Bitmap') then Exit;
+
+  CarbonBitmap := TCarbonBitmap.Create(Bitmap.Width, Bitmap.Height, 24, 32, cbaDWord, cbtRGB, Bitmap.Pixels, False);
+  try
+    CGImage := CarbonBitmap.CreateSubImage(Bounds(SrcX, SrcY, SrcWidth, SrcHeight));
+
+    TCarbonDeviceContext(Dest).DrawCGImage(DstX, DstY, SrcWidth, SrcHeight, CGImage);
+    CGImageRelease(CGImage);
+  finally
+    CarbonBitmap.Free;
+  end;
 end;
 
 procedure WidgetSetDrawRGB8Bitmap(Dest: HDC; DstX, DstY: Integer; SrcX, SrcY,
   SrcWidth, SrcHeight: Integer; Bitmap: TRGB8BitmapCore);
 var
-  P: TPoint;
+  CGImage: CGImageRef;
+  CarbonBitmap: TCarbonBitmap;
 begin
-  {$IFDEF GTK_POST_0924}
-  P := TGtkDeviceContext(Dest).Offset;
-  Inc(DstX, P.X);
-  Inc(DstY, P.Y);
-  gdk_draw_gray_image(TGtkDeviceContext(Dest).Drawable, TGtkDeviceContext(Dest).GC,
-    DstX, DstY, SrcWidth, SrcHeight, GDK_RGB_DITHER_NONE,
-    Pguchar(Bitmap.Get8PixelPtrUnsafe(SrcX, SrcY)), Bitmap.RowPixelStride);
-  {$ELSE}
-  P := GetDCOffset(TDeviceContext(Dest));
-  Inc(DstX, P.X);
-  Inc(DstY, P.Y);
-  gdk_draw_gray_image(TDeviceContext(Dest).Drawable, TDeviceContext(Dest).GC,
-    DstX, DstY, SrcWidth, SrcHeight, GDK_RGB_DITHER_NONE,
-    Pguchar(Bitmap.Get8PixelPtrUnsafe(SrcX, SrcY)), Bitmap.RowPixelStride);
-  {$ENDIF}
+  if not CheckDC(Dest, 'WidgetSetDrawRGB8Bitmap') then Exit;
+
+  CarbonBitmap := TCarbonBitmap.Create(Bitmap.Width, Bitmap.Height, 8, 8, cbaDWord, cbtGray, Bitmap.Pixels, False);
+  try
+    CGImage := CarbonBitmap.CreateSubImage(Bounds(SrcX, SrcY, SrcWidth, SrcHeight));
+
+    TCarbonDeviceContext(Dest).DrawCGImage(DstX, DstY, SrcWidth, SrcHeight, CGImage);
+    CGImageRelease(CGImage);
+  finally
+    CarbonBitmap.Free;
+  end;
 end;
 
-initialization
-  gdk_rgb_init;
 
 end.
 

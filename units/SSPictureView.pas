@@ -407,7 +407,7 @@ begin
 
   end else if Mode = PV_MODE_PIXELS then begin
 
-    (CurrentPicture.bitmap.Pixels)^:=$ff000000;
+    //(CurrentPicture.bitmap.Pixels)^:=$ff000000;
 
     // Рисование линии
     if CurrentPicture <> nil then begin
@@ -416,7 +416,7 @@ begin
 
       if ( tx >= 0 ) and ( ty >= 0 ) and ( ty < CurrentPicture.Width ) and ( ty < CurrentPicture.Height ) then begin
 
-        (CurrentPicture.bitmap.Pixels+CurrentPicture.bitmap.Width*ty+tx)^:=$ff000000;
+        //(CurrentPicture.bitmap.Pixels+CurrentPicture.bitmap.Width*ty+tx)^:=$ff000000;
 
         Repaint;
       end;
@@ -511,7 +511,7 @@ begin
 
         if ( tx >= 0 ) and ( ty >= 0 ) and ( ty < CurrentPicture.Width ) and ( ty < CurrentPicture.Height ) then begin
 
-          (CurrentPicture.bitmap.Pixels+CurrentPicture.bitmap.Width*ty+tx)^:=$ff000000;
+          //(CurrentPicture.bitmap.Pixels+CurrentPicture.bitmap.Width*ty+tx)^:=$ff000000;
 
           Repaint;
         end;
