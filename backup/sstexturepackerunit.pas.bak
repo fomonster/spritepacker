@@ -1,0 +1,19 @@
+unit SSTexturePackerUnit;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils;
+{******************************************************************************}
+type
+{******************************************************************************}
+TTextureGenerator = class
+
+
+
+implementation
+
+end.
+

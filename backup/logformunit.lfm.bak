@@ -1,0 +1,49 @@
+object LogForm: TLogForm
+  Left = 497
+  Height = 320
+  Top = 262
+  Width = 494
+  Caption = 'Info'
+  ClientHeight = 320
+  ClientWidth = 494
+  LCLVersion = '1.4.4.0'
+  object LogMemo: TMemo
+    Left = 0
+    Height = 294
+    Top = 26
+    Width = 494
+    Align = alClient
+    Font.CharSet = RUSSIAN_CHARSET
+    Font.Height = -13
+    Font.Name = 'Courier New'
+    Font.Pitch = fpFixed
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    Lines.Strings = (
+      'LogMemo'
+    )
+    ParentFont = False
+    ReadOnly = True
+    ScrollBars = ssVertical
+    TabOrder = 0
+  end
+  object Panel1: TPanel
+    Left = 0
+    Height = 26
+    Top = 0
+    Width = 494
+    Align = alTop
+    ClientHeight = 26
+    ClientWidth = 494
+    TabOrder = 1
+    object CloseButton: TButton
+      Left = 1
+      Height = 25
+      Top = 0
+      Width = 75
+      Caption = 'Close'
+      OnClick = CloseButtonClick
+      TabOrder = 0
+    end
+  end
+end

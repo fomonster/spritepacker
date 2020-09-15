@@ -1,0 +1,1143 @@
+unit PackerTreeUnit;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, Graphics, Windows,
+  //
+  SSPackerUnit,  ConstantsUnit, GeneratorNodeUnit, SSXMLUnit;
+
+const
+
+  GN_STATUS_WAIT       = 1;
+  GN_STATUS_CHANGED    = 2;
+  GN_STATUS_CREATE     = 3;
+  GN_STATUS_WAITRENDER = 4;
+
+  GL_STATUS_EMPTY = 0;
+  GL_STATUS_WAIT  = 1;
+  GL_STATUS_CHANGENODES = 2;
+
+type
+  TPackerNodeList = class;
+
+  {******************************************************************************}
+  TTextureCacheThread = class(TThread)
+  private
+
+
+    index: integer;
+    FSize: integer;
+    IsNeedStopThread, IsThreadStopped: boolean;
+    IsNeedChange:Boolean;
+
+    GeneratorNodeList: TGeneratorNodeList;
+    procedure ThreadDone(Sender: TObject);
+  protected
+    procedure Execute; override;
+  public
+
+    IsNeedStop:boolean;
+    IsStopped:boolean;
+
+    constructor Create(IsSuspended: boolean);
+
+    procedure SetRBMBitmapForRender;
+    procedure SetIsNeedRenderTrue;
+    procedure GetIsNeedChange;
+    procedure SetIsNeedChangeFalse;
+  end;
+
+  {******************************************************************************}
+  TGeneratorNode = class
+    GeneratorNodeList: TGeneratorNodeList; // ссылка на список нодов
+    Id:      integer; // порядковый номер в списке нодов
+    OwnerId: integer; // Номер корневого Node, если -1, то корень
+    bakId:Integer;
+
+    ChildsCount: integer; // Количество потомков
+    Childs:      array of integer; // потомки
+
+    TypeId: integer; // 0 - Пустой контейнер
+
+    TextureGenerator: TTextureGenerator; // Текстурный генератор
+
+    TextureRenderer:TTextureGenerator;
+
+    GeneratorNodeUnit: TGeneratorNodeUnit;
+    // Класс генератора элемента дерева
+
+    L, P: integer; // позиция на экране
+
+    Status: integer; // Статус состояния нода
+    //  GN_STATUS_EMPTY = 0; // Только что создан, ничего не делаем, пока IsNeedChange
+    //  GN_STATUS_WAIT = 1;  // Всё создано, ничего не делаем
+    //  GN_STATUS_CHANGED = 2; // Переносим параметры, для пересоздания
+    //  GN_STATUS_CREATE = 3; // Пересоздание
+    //  GN_STATUS_GETIMAGE = 4; // Создание картинки для прорисовки
+
+    IsNeedChange: boolean;
+    // Нобходимо пересоздать с новыми параметрами
+    IsNeedRender: boolean;
+    IsNeedDelete: boolean; // Требуется удаление
+    IsSelected:   boolean; // Выделен
+
+    IsGenerateProcess: boolean;
+    // Текстура в процессе генерации
+    IsRenderProcess:   boolean;
+    // Текстура в процессе отрисовки
+
+    Left, Top:     integer;
+    Width, Height: integer;
+
+    constructor Create;
+    destructor Destroy;
+
+    procedure SetType(_TypeId: integer);
+
+    procedure SetIsNeedChange(_b: boolean);
+
+    procedure Cache;
+
+    procedure ThreadFrameMove;
+
+    procedure Render(Canvas:TCanvas;dx,dy:Integer);
+
+    procedure AddChild(_n: integer);
+
+    procedure SetFromXML(GeneratorTree:TGeneratorNodeList;xml:TXMLNode);
+    procedure SetToXML(GeneratorTree:TGeneratorNodeList;xml:TXMLNode);
+
+  end;
+
+  {******************************************************************************}
+  PPackerNodeArray = ^TPackerNodeArray;
+  TPackerNodeArray = array [0..100000000] of TPackerNode;
+
+  TPackerNodeList = class
+
+  private
+    GeneratorNodeArray: PGeneratorNodeArray;
+
+  public
+    AWidth,AHeight:Integer;
+
+    thread: TTextureCacheThread;
+
+    Count: integer;
+
+    Status: integer;
+
+    IsChanged: boolean;
+
+    CurI: integer;
+
+    constructor Create;
+    destructor Destroy;
+
+    procedure OnInitContext;
+    procedure OnDestroyContext;
+
+
+    function Get(index: integer): TGeneratorNode;
+    procedure Put(index: integer; const Value: TPackerNode);
+
+    procedure Clear;
+    procedure SetLength(NewLength: integer);
+
+    function Add: TPackerNode;
+    function Insert(index: integer): TPackerNode;
+    function Push: TPackerNode;
+    procedure Pop;
+    procedure Delete(index: integer);
+    procedure DeleteTree(index: integer);
+    procedure DeleteRoot(index: integer);
+    procedure DeleteAllIfNeed;
+
+    function InsertTreeNode(ChildNode: TGeneratorNode): TGeneratorNode;
+    function InsertChildTreeNode(ChildNode: TGeneratorNode): TGeneratorNode;
+
+    procedure StopThread;
+    procedure StartThread;
+
+    property item[index: integer]: TGeneratorNode Read Get; default;
+
+    procedure Selection_UnSelectAll;
+
+    function Event_HitTest(x, y: integer): TGeneratorNode;
+
+    procedure FrameMove;
+    procedure ThreadFrameMove;
+
+    procedure Render(Canvas:TCanvas;dx,dy:Integer); // Рендеринг превью
+    procedure PreRender;
+    // Процедура, расчета положения ветвей дерева на экране
+
+  end;
+
+{******************************************************************************}
+
+implementation
+
+uses MainFormUnit, Forms;
+
+ {******************************************************************************}
+ // TGeneratorNodeList
+constructor TGeneratorNodeList.Create;
+begin
+  IsChanged := False;
+
+  Count := 0;
+  GeneratorNodeArray := nil;
+
+  Status := GL_STATUS_EMPTY;
+
+  thread := TTextureCacheThread.Create(True);
+  thread.GeneratorNodeList := self;
+  thread.Resume;
+
+  CurI := 0;
+end;
+
+destructor TGeneratorNodeList.Destroy;
+begin
+  //  if thread.Suspended then thread.Resume;
+  thread.Terminate;
+  sleep(100);
+  Clear;
+end;
+
+procedure TGeneratorNodeList.OnInitContext;
+var
+  i: integer;
+begin
+  //  for i:=0 to count-1 do item[i].OnInitContext;
+end;
+
+procedure TGeneratorNodeList.OnDestroyContext;
+var
+  i: integer;
+begin
+  //  for i:=0 to count-1 do item[i].OnDestroyContext;
+end;
+
+function TGeneratorNodeList.Get(index: integer): TGeneratorNode;
+begin
+  if (GeneratorNodeArray <> nil) and (index >= 0) and (index < Count) then
+    Result := GeneratorNodeArray^[index]
+  else
+    Result := nil;
+end;
+
+procedure TGeneratorNodeList.Put(index: integer; const Value: TGeneratorNode);
+begin
+  if (index >= 0) and (index < Count) then
+    GeneratorNodeArray^[index] := Value;
+end;
+
+procedure TGeneratorNodeList.Clear;
+var
+  i: integer;
+begin
+  for i := 0 to Count - 1 do
+    GeneratorNodeArray^[i].Destroy;
+  Count := 0;
+  Freemem(GeneratorNodeArray);
+  GeneratorNodeArray := nil;
+end;
+
+procedure TGeneratorNodeList.SetLength(NewLength: integer);
+var
+  i: integer;
+begin
+  if NewLength = Count then
+    exit;
+  IsChanged := True;
+  if NewLength > 0 then
+  begin
+    if NewLength < Count then
+    begin
+      for i := NewLength to Count - 1 do
+        GeneratorNodeArray^[i].Destroy;
+    end;
+    ReAllocMem(GeneratorNodeArray, sizeof(TGeneratorNode) * NewLength);
+    if NewLength > Count then
+    begin
+      for i := Count to NewLength - 1 do
+      begin
+        GeneratorNodeArray^[i]    := TGeneratorNode.Create;
+        GeneratorNodeArray^[i].Id := i;
+        GeneratorNodeArray^[i].GeneratorNodeList := self;
+      end;
+    end;
+    Count := NewLength;
+  end
+  else
+  begin
+    Clear;
+  end;
+end;
+
+function TGeneratorNodeList.Add: TGeneratorNode;
+begin
+  SetLength(Count + 1);
+  Result    := GeneratorNodeArray^[Count - 1];
+  IsChanged := True;
+end;
+
+function TGeneratorNodeList.Insert(index: integer): TGeneratorNode;
+var
+  i: integer;
+begin
+  if index > Count then
+    index := Count;
+  if (index >= 0) then
+  begin
+    IsChanged := True;
+    ReAllocMem(GeneratorNodeArray, sizeof(TGeneratorNode) * (Count + 1));
+    if index < Count then
+    begin
+      System.Move(GeneratorNodeArray^[index], GeneratorNodeArray^[index + 1],
+        (Count - index) * sizeof(TGeneratorNode));
+    end;
+    GeneratorNodeArray^[index] := TGeneratorNode.Create;
+    GeneratorNodeArray^[index].GeneratorNodeList := self;
+    Inc(Count);
+    for i := index to Count - 1 do
+      GeneratorNodeArray^[i].Id := i;
+    Result := GeneratorNodeArray^[index];
+  end
+  else
+    Result := nil;
+end;
+
+function TGeneratorNodeList.Push: TGeneratorNode;
+begin
+  SetLength(Count + 1);
+  Result := GeneratorNodeArray^[Count - 1];
+end;
+
+procedure TGeneratorNodeList.Pop;
+begin
+  Delete(Count - 1);
+end;
+
+// Удаляем элемент и все его правые ветви
+procedure TGeneratorNodeList.DeleteTree(index: integer);
+
+  procedure RecurseSelect(idd:Integer);
+    var
+      i:Integer;
+  begin
+    GeneratorNodeArray^[idd].IsNeedDelete:=true;
+    for i:=0 to GeneratorNodeArray^[idd].ChildsCount-1 do
+      RecurseSelect(GeneratorNodeArray^[idd].Childs[i]);
+  end;
+
+  var
+    i,j,k:Integer;
+
+begin
+  if (index >= 0) and (index < Count) then begin
+    IsChanged := True;
+    IsDocSaved:=false;
+    for i := 0 to Count - 1 do begin
+      GeneratorNodeArray^[i].bakId:=GeneratorNodeArray^[i].Id;
+      GeneratorNodeArray^[i].IsNeedDelete:=false;
+    end;
+    if GeneratorNodeArray^[index].ChildsCount>0 then begin
+      for i:=0 to GeneratorNodeArray^[index].ChildsCount-1 do begin
+        GeneratorNodeArray^[GeneratorNodeArray^[index].Childs[i]].OwnerId:=GeneratorNodeArray^[index].OwnerId;
+
+        if GeneratorNodeArray^[index].OwnerId>=0 then begin
+          for k:=0 to GeneratorNodeArray^[GeneratorNodeArray^[index].OwnerId].ChildsCount-1 do
+            if GeneratorNodeArray^[GeneratorNodeArray^[index].OwnerId].Childs[k]=index
+              then GeneratorNodeArray^[GeneratorNodeArray^[index].OwnerId].Childs[k]:=GeneratorNodeArray^[index].Childs[0];
+        end;
+
+      end;
+      for i:=1 to GeneratorNodeArray^[index].ChildsCount-1 do
+        RecurseSelect(GeneratorNodeArray^[index].Childs[i]);
+    end;
+    GeneratorNodeArray^[index].IsNeedDelete:=true;
+    DeleteAllIfNeed;
+    for i := 0 to Count - 1 do begin
+      GeneratorNodeArray^[i].Id := i;
+      GeneratorNodeArray^[i].IsNeedChange:=true;
+    end;
+    for i:=0 to count-1 do begin
+      for j:=0 to count-1 do
+        if GeneratorNodeArray^[j].bakId=GeneratorNodeArray^[i].OwnerId
+          then GeneratorNodeArray^[i].OwnerId:=j;
+      for k:=0 to GeneratorNodeArray^[i].ChildsCount-1 do begin
+        for j:=0 to count-1 do
+          if GeneratorNodeArray^[j].bakId=GeneratorNodeArray^[i].Childs[k]
+            then GeneratorNodeArray^[i].Childs[k]:=j;
+      end;
+    end;
+  end;
+end;
+
+procedure TGeneratorNodeList.DeleteRoot(index: integer);
+
+  procedure RecurseSelect(idd:Integer);
+    var
+      i:Integer;
+  begin
+    GeneratorNodeArray^[idd].IsNeedDelete:=true;
+    for i:=0 to GeneratorNodeArray^[idd].ChildsCount-1 do
+      RecurseSelect(GeneratorNodeArray^[idd].Childs[i]);
+  end;
+
+  var
+    i,j,k:Integer;
+
+begin
+  if (index >= 0) and (index < Count) then begin
+
+    IsChanged := True;
+    IsDocSaved:=false;
+
+    for i := 0 to Count - 1 do begin
+      GeneratorNodeArray^[i].bakId:=GeneratorNodeArray^[i].Id;
+      GeneratorNodeArray^[i].IsNeedDelete:=false;
+    end;
+
+    for i:=0 to GeneratorNodeArray^[index].ChildsCount-1 do
+      RecurseSelect(GeneratorNodeArray^[index].Childs[i]);
+
+    GeneratorNodeArray^[index].ChildsCount:=0;
+    GeneratorNodeArray^[index].Childs:=nil;
+
+    DeleteAllIfNeed;
+
+    for i := 0 to Count - 1 do begin
+      GeneratorNodeArray^[i].Id := i;
+      GeneratorNodeArray^[i].IsNeedChange:=true;
+    end;
+
+    for i:=0 to count-1 do begin
+      for j:=0 to count-1 do
+        if GeneratorNodeArray^[j].bakId=GeneratorNodeArray^[i].OwnerId
+          then GeneratorNodeArray^[i].OwnerId:=j;
+      for k:=0 to GeneratorNodeArray^[i].ChildsCount-1 do begin
+        for j:=0 to count-1 do
+          if GeneratorNodeArray^[j].bakId=GeneratorNodeArray^[i].Childs[k]
+            then GeneratorNodeArray^[i].Childs[k]:=j;
+      end;
+    end;
+
+  end;
+end;
+
+// Удаляем элемент со сдвигом (подходит листа с одним потомком)
+procedure TGeneratorNodeList.Delete(index: integer);
+var
+  i,j,k,idd,owid: integer;
+begin
+  if (index >= 0) and (index < Count) then
+  begin
+    IsChanged := True;
+    IsDocSaved:=false;
+    for i := 0 to Count - 1 do GeneratorNodeArray^[i].bakId:=GeneratorNodeArray^[i].Id;
+    owid:=GeneratorNodeArray^[index].OwnerId;
+    if GeneratorNodeArray^[index].ChildsCount>0 then begin
+
+      for i:=0 to GeneratorNodeArray^[index].ChildsCount-1 do begin
+        GeneratorNodeArray^[GeneratorNodeArray^[index].Childs[i]].OwnerId:=GeneratorNodeArray^[index].OwnerId;
+
+        if GeneratorNodeArray^[index].OwnerId>=0 then begin
+          for k:=0 to GeneratorNodeArray^[GeneratorNodeArray^[index].OwnerId].ChildsCount-1 do
+            if GeneratorNodeArray^[GeneratorNodeArray^[index].OwnerId].Childs[k]=index
+              then GeneratorNodeArray^[GeneratorNodeArray^[index].OwnerId].Childs[k]:=GeneratorNodeArray^[index].Childs[0];
+        end;
+
+      end;
+    end;
+    GeneratorNodeArray^[index].Destroy;
+    if index < Count - 1 then
+    begin
+      System.Move(GeneratorNodeArray^[index + 1], GeneratorNodeArray^[index],
+        (Count - index - 1) * sizeof(TGeneratorNode));
+    end;
+    Dec(Count);
+    ReAllocMem(GeneratorNodeArray, sizeof(TGeneratorNode) * Count);
+
+    for i := 0 to Count - 1 do begin
+      GeneratorNodeArray^[i].Id := i;
+      GeneratorNodeArray^[i].IsNeedChange:=true;
+    end;
+
+    for i:=0 to count-1 do begin
+      for j:=0 to count-1 do
+        if GeneratorNodeArray^[j].bakId=GeneratorNodeArray^[i].OwnerId
+          then GeneratorNodeArray^[i].OwnerId:=GeneratorNodeArray^[j].id;
+      for k:=0 to GeneratorNodeArray^[i].ChildsCount-1 do begin
+        for j:=0 to count-1 do
+          if GeneratorNodeArray^[j].bakId=GeneratorNodeArray^[i].Childs[k]
+            then GeneratorNodeArray^[i].Childs[k]:=GeneratorNodeArray^[j].id;
+      end;
+
+    end;
+  end;
+end;
+
+procedure TGeneratorNodeList.DeleteAllIfNeed;
+var
+  i, j, k: integer;
+begin
+  j := -1;
+  k := 0;
+  for i := 0 to Count - 1 do
+  begin
+    if GeneratorNodeArray^[i].IsNeedDelete then
+    begin
+      IsChanged := True;
+      GeneratorNodeArray^[i].Destroy;
+      Inc(k);
+      if j = -1 then
+        j := i;
+    end
+    else
+    begin
+      if j >= 0 then
+      begin
+        GeneratorNodeArray^[j] := GeneratorNodeArray^[i];
+        j := j + 1;
+      end;
+    end;
+  end;
+  Count := Count - k;
+  if k > 0 then
+    ReAllocMem(GeneratorNodeArray, sizeof(TGeneratorNode) * Count);
+end;
+
+procedure TGeneratorNodeList.StopThread;
+begin
+  thread.IsNeedStop:=true;
+  while not thread.IsStopped do begin
+    if thread.Suspended then thread.Resume;
+    Application.ProcessMessages;
+  end;
+end;
+
+procedure TGeneratorNodeList.StartThread;
+begin
+  thread.IsNeedStop:=false;
+  if thread.Suspended then thread.Resume;
+end;
+
+// Добавление в дерево элемента который будет родительским к ChildNode:TGeneratorNode
+function TGeneratorNodeList.InsertTreeNode(ChildNode: TGeneratorNode): TGeneratorNode;
+var
+  tOId, tId, i, j: integer;
+begin
+  Result := self.Add;
+  Result.OwnerId := ChildNode.OwnerId;
+  if Result.OwnerId >= 0 then
+    for i := 0 to item[Result.OwnerId].ChildsCount - 1 do
+      if item[Result.OwnerId].Childs[i] = ChildNode.Id then
+      begin
+        item[Result.OwnerId].Childs[i] := Result.Id;
+        break;
+      end;
+  Result.AddChild(ChildNode.Id);
+  ChildNode.OwnerId := Result.Id;
+  Result.IsNeedChange := True;
+  IsChanged := True;
+end;
+
+function TGeneratorNodeList.InsertChildTreeNode(ChildNode: TGeneratorNode):
+TGeneratorNode;
+var
+  tOId, tId, lcId, i, j: integer;
+begin
+  Result := self.Add;
+  Result.OwnerId := ChildNode.Id;
+  ChildNode.AddChild(Result.Id);
+  Result.IsNeedChange := True;
+  IsChanged := True;
+end;
+
+procedure TGeneratorNodeList.Selection_UnSelectAll;
+var
+  i: integer;
+begin
+  for i := 0 to Count - 1 do
+  begin
+    if GeneratorNodeArray^[i].IsSelected then
+      GeneratorNodeArray^[i].IsNeedRender := True;  //!!!
+    GeneratorNodeArray^[i].IsSelected     := False;
+  end;
+end;
+
+function TGeneratorNodeList.Event_HitTest(x, y: integer): TGeneratorNode;
+var
+  i, dx, dy: integer;
+begin
+  Result := nil;
+  for i := 0 to Count - 1 do
+  begin
+    dx := x - GeneratorNodeArray^[i].Left;
+    dy := y - GeneratorNodeArray^[i].Top;
+    if (dx >= 0) and (dx < GeneratorNodeArray^[i].Width) and (dy >= 0) and
+      (dy < GeneratorNodeArray^[i].Height) then
+    begin
+      Result := GeneratorNodeArray^[i];
+      exit;
+    end;
+  end;
+end;
+
+procedure TGeneratorNodeList.FrameMove;
+var
+  i: integer;
+begin
+  if Status = GL_STATUS_EMPTY then
+  begin
+
+  end
+  else if Status = GL_STATUS_WAIT then
+  begin
+
+  end
+  else if Status = GL_STATUS_CHANGENODES then
+  begin
+
+  end;
+
+  MainForm.NodesView.Repaint;
+end;
+
+procedure TGeneratorNodeList.ThreadFrameMove;
+var
+  i: integer;
+begin
+end;
+
+procedure TGeneratorNodeList.Render(Canvas:TCanvas;dx,dy:Integer);
+var
+  i: integer;
+begin
+  if Status = GL_STATUS_EMPTY then
+  begin
+
+  end
+  else if Status = GL_STATUS_WAIT then
+  begin
+
+  end
+  else if Status = GL_STATUS_CHANGENODES then
+  begin
+
+  end;
+  //IsChanged:=true;
+  if IsChanged then
+  begin
+    PreRender;
+
+    for i := 0 to Count - 1 do
+      item[i].IsNeedRender := True;
+
+  end;
+
+  for i := 0 to Count - 1 do begin
+
+    item[i].Render(Canvas,dx,dy);
+  end;
+
+end;
+
+procedure TGeneratorNodeList.PreRender;
+
+
+  function MakeNode(Node: TGeneratorNode; sp, sl: integer): integer;
+  var
+    i: integer;
+  begin
+    Node.L := sl;
+    Node.P := sp;
+    if Node.ChildsCount = 0 then
+    begin
+      Result := sp + 1;
+    end
+    else
+    begin
+      Result := sp;
+      for i := 0 to Node.ChildsCount - 1 do
+      begin
+        Result := MakeNode(item[Node.Childs[i]], Result, sl + 1);
+      end;
+    end;
+  end;
+
+var
+  i, j, L, Ow, bl, bw, sx, sy, minx, maxx, maxy, id, maxp, tp: integer;
+  ischilds: boolean;
+
+begin
+  // Процедурка расчитывает координаты точек дерева на экране.
+
+  // Подсчитываем количество потомков у каждой вершины
+  // Заполянем уровни дерева L и параметры A,C,P
+
+  for i := 0 to Count - 1 do
+    if item[i].OwnerId = -1 then
+    begin
+      MakeNode(item[i], 0, 0);
+    end;
+
+  // Расчитываем координаты в уровне
+  for i := 0 to Count - 1 do
+  begin
+    GeneratorNodeArray^[i].Top  := GeneratorNodeArray^[i].L * (ViewTexSize + 64) + 64;
+    GeneratorNodeArray^[i].Left := GeneratorNodeArray^[i].P * (ViewTexSize + 64) + 64;
+  end;
+
+  // Проходим ещё раз и просчитываем координаты в строках
+  maxy := -10000;
+  maxx := -10000;
+  for i := Count - 1 downto 0 do
+  begin
+    if GeneratorNodeArray^[i].Left > maxx then
+      maxx := GeneratorNodeArray^[i].Left;
+    if GeneratorNodeArray^[i].Top > maxy then
+      maxy := GeneratorNodeArray^[i].Top;
+  end;
+
+  AWidth:=maxx + (ViewTexSize + 64);
+  AHeight:=maxy + (ViewTexSize + 64);
+
+  IsChanged := False;
+end;
+
+{******************************************************************************}
+
+ {******************************************************************************}
+ // TGeneratorNode
+constructor TGeneratorNode.Create;
+begin
+  IsNeedDelete := False;
+  IsSelected   := False;
+  IsNeedChange := False;
+  IsNeedDelete := False;
+  IsNeedRender := False;
+
+  Status := GN_STATUS_WAIT;
+
+  TextureGenerator := TTextureGenerator.Create;
+  TextureGenerator.Width := ViewTexSize;
+  TextureGenerator.Height := ViewTexSize;
+
+  TextureRenderer:=nil;
+
+  IsGenerateProcess := False; // Текстура в процессе генерации
+  IsRenderProcess   := False; // Текстура в процессе отрисовки
+
+  OwnerId := -1;
+
+  ChildsCount := 0;
+  Childs      := nil;
+
+  TypeId := 0;
+  Width  := ViewTexSize;
+  Height := ViewTexSize;
+  Left   := 0;
+  Top    := 0;
+
+  GeneratorNodeUnit := nil;
+end;
+
+destructor TGeneratorNode.Destroy;
+begin
+  if GeneratorNodeUnit <> nil then
+    GeneratorNodeUnit.Destroy;
+  TextureGenerator.Destroy;
+  ChildsCount := 0;
+  Childs      := nil;
+  if TextureRenderer<>nil then begin
+    TextureRenderer.Destroy;
+    TextureRenderer:=nil;
+  end;
+end;
+
+procedure TGeneratorNode.AddChild(_n: integer);
+begin
+  SetLength(Childs, ChildsCount + 1);
+  Childs[ChildsCount] := _n;
+  Inc(ChildsCount);
+end;
+
+procedure TGeneratorNode.SetType(_TypeId: integer);
+begin
+  if GeneratorNodeUnit<>nil then begin
+    GeneratorNodeUnit.Destroy;
+    GeneratorNodeUnit:=nil;
+    IsNeedChange := True;
+  end;
+  TypeId := _TypeId;
+  if TypeId=0 then exit;
+  case TypeId of
+    TG_Primitive_ZCircle:GeneratorNodeUnit := TZCircleGeneratorNodeUnit.Create;
+    TG_Generate_Noise: GeneratorNodeUnit      := TNoiseGeneratorNodeUnit.Create;
+    TG_Generate_Turbulence: GeneratorNodeUnit      := TTurbulenceGeneratorNodeUnit.Create;
+    TG_Generate_Bricks: GeneratorNodeUnit     := TBricksGeneratorNodeUnit.Create;
+    TG_Generate_WoodRings: GeneratorNodeUnit  := TWoodRingsGeneratorNodeUnit.Create;
+    TG_Generate_Cells: GeneratorNodeUnit      := TCellsGeneratorNodeUnit.Create;
+    TG_Generate_Clouds: GeneratorNodeUnit     := TCloudsGeneratorNodeUnit.Create;
+    TG_Generate_Gradient:GeneratorNodeUnit := TGradientGeneratorNodeUnit.Create;
+    TG_Generate_SolidColor:GeneratorNodeUnit := TSolidColorGeneratorNodeUnit.Create;
+    TG_Filter_GaussianBlur: GeneratorNodeUnit := TGaussianBlurGeneratorNodeUnit.Create;
+    TG_Color_ChangeHSB: GeneratorNodeUnit := TChangeHSBGeneratorNodeUnit.Create;
+    TG_Color_ColorGradient: GeneratorNodeUnit := TColorGradientGeneratorNodeUnit.Create;
+    TG_Color_Colorize: GeneratorNodeUnit := TColorizeGeneratorNodeUnit.Create;
+    TG_Combine_AlphaMask:GeneratorNodeUnit := TAlphaMaskGeneratorNodeUnit.Create;
+    TG_Combine_Blend:GeneratorNodeUnit := TBlendGeneratorNodeUnit.Create;
+    TG_Transform_Rotate:GeneratorNodeUnit := TRotateGeneratorNodeUnit.Create;
+    TG_Transform_Move:GeneratorNodeUnit := TMoveGeneratorNodeUnit.Create;
+    TG_Transform_Fractalize:GeneratorNodeUnit := TFractalizeGeneratorNodeUnit.Create;
+    TG_Transform_Waves:GeneratorNodeUnit := TWavesGeneratorNodeUnit.Create;
+    TG_Transform_Twist:GeneratorNodeUnit := TTwistGeneratorNodeUnit.Create;
+    TG_Transform_Distort:GeneratorNodeUnit := TDistortGeneratorNodeUnit.Create;
+    TG_Transparency_MakeAlpha:GeneratorNodeUnit := TMakeAlphaGeneratorNodeUnit.Create;
+    TG_Transparency_FillAlpha:GeneratorNodeUnit := TFillAlphaGeneratorNodeUnit.Create;
+    TG_Transparency_AlphaFromColor:GeneratorNodeUnit := TAlphaFromColorGeneratorNodeUnit.Create;
+    TG_Lighting_Lighting:GeneratorNodeUnit := TLightingGeneratorNodeUnit.Create;
+    TG_Lighting_ReliefLighting:GeneratorNodeUnit := TReliefLightingGeneratorNodeUnit.Create;
+    TG_Lighting_NormalMap:GeneratorNodeUnit := TNormalMapGeneratorNodeUnit.Create;
+    TG_Project_EnvironmentMapping:GeneratorNodeUnit := TEnvironmentMappingGeneratorNodeUnit.Create;
+  end;
+  GeneratorNodeUnit.TypeId:=TypeId;
+  if GeneratorNodeUnit<>nil then begin
+    GeneratorNodeUnit.GeneratorNodePtr := TClass(self);
+    IsNeedChange := True;
+  end;
+  IsDocSaved:=false;
+end;
+
+procedure TGeneratorNode.SetFromXML(GeneratorTree:TGeneratorNodeList;xml:TXMLNode);
+  var
+    i:Integer;
+    Node:TGeneratorNode;
+    xml1:TXMLNode;
+begin
+  if not xml.IsNotEmpty then exit;
+  SetType(xml.Attribute_Int('typeid'));
+  if (TypeId>0) and xml['params'].IsNotEmpty then begin
+    GeneratorNodeUnit.SetFromXML(xml['params']);
+    if xml['childs'].IsNotEmpty then begin
+      for i:=0 to xml['childs'].SubNodesCount-1 do begin
+        xml1:=xml['childs'].SubNodes[i];
+        if xml1.Name='generator' then begin
+          node:=GeneratorTree.InsertChildTreeNode(self);
+          node.SetFromXML(GeneratorTree,xml1);
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure TGeneratorNode.SetToXML(GeneratorTree:TGeneratorNodeList;xml:TXMLNode);
+  var
+    i:Integer;        
+    node,node1,node2:TXMLNode;
+begin
+  node:=xml.SubNodes_Add;
+  node.Name:='generator';
+  node.Attribute_Add('typeid')^.Value:=IntToStr(typeid);
+  node1:=node.SubNodes_Add;
+  node1.name:='params';
+  if (TypeId>0) and (GeneratorNodeUnit<>nil) then
+    GeneratorNodeUnit.SetToXML(node1);
+  node1:=node.SubNodes_Add;
+  node1.name:='childs';
+  for i:=0 to ChildsCount-1 do begin
+    GeneratorTree[Childs[i]].SetToXML(GeneratorTree,node1);
+  end;
+end;
+
+procedure TGeneratorNode.SetIsNeedChange(_b: boolean);
+var
+  i: integer;
+begin
+  GeneratorNodeList.thread.Suspend;
+  // sleep(100);
+ // IsNeedChange := _b;
+  GeneratorNodeList.thread.Resume;
+end;
+
+procedure TGeneratorNode.Cache;
+begin
+  if GeneratorNodeUnit <> nil then
+    GeneratorNodeUnit.Generate
+  else
+    TextureGenerator.Primitive_Rect(0, 0, Width, Height, 0, 0, 0, 0);
+end;
+
+procedure TGeneratorNode.ThreadFrameMove;
+begin
+
+end;
+
+procedure TGeneratorNode.Render(Canvas:TCanvas;dx,dy:Integer);
+var
+  s:      string;
+  c1, c2: integer;
+  _left,_top:Integer;
+begin
+  _left:=Left-dx;
+  _top:=Top-dy;
+
+//  if not IsNeedRender and not IsNeedChange then exit;
+  IsRenderProcess := True;
+
+  if IsSelected then Canvas.Pen.Color := $00FFFF
+                else Canvas.Pen.Color := $000000;
+
+  Canvas.MoveTo(_left - 2, _top - 2);
+  Canvas.LineTo(_left + Width + 1, _top - 2);
+  Canvas.LineTo(_left + Width + 1, _top + Height + 1);
+  Canvas.LineTo(_left - 2, _top + Height + 1);
+  Canvas.LineTo(_left - 2, _top - 2);
+
+  if IsSelected then Canvas.Pen.Color := $00FFFF
+                else Canvas.Pen.Color := $FFFFFF;
+
+  Canvas.MoveTo(_left - 1, _top - 1);
+  Canvas.LineTo(_left + Width, _top - 1);
+  Canvas.LineTo(_left + Width, _top + Height);
+  Canvas.LineTo(_left - 1, _top + Height);
+  Canvas.LineTo(_left - 1, _top - 1);
+
+  Canvas.Pen.Color := $7F7F7F;
+  Canvas.MoveTo(_left, _top + Height + 2);
+  Canvas.LineTo(_left + Width + 2, _top + Height + 2);
+  Canvas.LineTo(_left + Width + 2, _top);
+
+  Canvas.Pen.Color := $AFAFAF;
+  Canvas.MoveTo(_left, _top + Height + 3);
+  Canvas.LineTo(_left + Width + 3, _top + Height + 3);
+  Canvas.LineTo(_left + Width + 3, _top);
+
+  Canvas.Brush.Color := $FFFFFF;
+  Canvas.Pen.Color   := $000000;
+
+case TypeId of
+    TG_Primitive_ZCircle: s:='ZCircle';
+    TG_Generate_Noise: s:='Noise';
+    TG_Generate_Turbulence: s:='Turbulence';
+    TG_Generate_Bricks: s:= 'Bricks';
+    TG_Generate_WoodRings: s:='WoodRings';
+    TG_Generate_Cells: s:='Cells';
+    TG_Generate_Clouds: s:='Clouds';
+    TG_Generate_Gradient: s:='Gradient';
+    TG_Generate_SolidColor: s:='SolidColor';
+    TG_Filter_GaussianBlur: s:='GaussianBlur';
+    TG_Color_ChangeHSB: s:='ChangeHSB';
+    TG_Color_ColorGradient: s:='ColorGradient';
+    TG_Color_Colorize: s:='Colorize';
+    TG_Combine_AlphaMask: s:='AlphaMask';
+    TG_Combine_Blend: s:='Blend';
+    TG_Transform_Rotate: s:='Rotate';
+    TG_Transform_Move: s:='Move';
+    TG_Transform_Fractalize: s:='Fractalize';
+    TG_Transform_Waves: s:='Waves';
+    TG_Transform_Twist: s:='Twist';
+    TG_Transform_Distort: s:='Distort';
+    TG_Transparency_MakeAlpha: s:='MakeAlpha';
+    TG_Transparency_AlphaFromColor: s:='AlphaFromColor';
+    TG_Transparency_FillAlpha: s:='FillAlpha';
+    TG_Lighting_Lighting: s:='Lighting';
+    TG_Lighting_ReliefLighting: s:='ReliefLighting';
+    TG_Lighting_NormalMap: s:='NormalMap';
+    TG_Project_EnvironmentMapping: s:='EnvironmentMapping';
+  end;
+
+  Canvas.Font.Style := [];
+  Canvas.TextOut(_Left, _Top - 20, s);
+
+
+  if ChildsCount > 0 then
+  begin
+   Canvas.Pen.Color := $000000;
+    Canvas.MoveTo(_left + Width div 2, _top + Height + 1);
+    Canvas.LineTo(_left + Width div 2, _top + Height + 33);
+    Canvas.Pen.Color := $7F7F7F;
+    Canvas.MoveTo(_left + Width div 2 + 1, _top + Height + 2);
+    Canvas.LineTo(_left + Width div 2 + 1, _top + Height + 33);
+    Canvas.Pen.Color := $AFAFAF;
+    Canvas.MoveTo(_left + Width div 2 + 2, _top + Height + 3);
+    Canvas.LineTo(_left + Width div 2 + 2, _top + Height + 33);
+
+    // Рисуем всякие там полоски к чаилдам
+    c1 := Childs[0];
+    c2 := Childs[ChildsCount - 1];
+    if c1 <> c2 then
+    begin
+      Canvas.Pen.Color := $000000;
+      Canvas.MoveTo(GeneratorNodeList[c1].left + GeneratorNodeList[c1].Width div 2-dx, _top + Height + 33);
+      Canvas.LineTo(GeneratorNodeList[c2].left + GeneratorNodeList[c2].Width div 2-dx, _top + Height + 33);
+      Canvas.Pen.Color := $7F7F7F;
+      Canvas.MoveTo(GeneratorNodeList[c1].left + GeneratorNodeList[c1].Width div 2 + 1-dx, _top + Height + 34);
+      Canvas.LineTo(GeneratorNodeList[c2].left + GeneratorNodeList[c2].Width div 2 + 1-dx, _top + Height + 34);
+      Canvas.Pen.Color := $AFAFAF;
+      Canvas.MoveTo(GeneratorNodeList[c1].left + GeneratorNodeList[c1].Width div 2 + 2-dx, _top + Height + 35);
+      Canvas.LineTo(GeneratorNodeList[c2].left + GeneratorNodeList[c2].Width div 2 + 2-dx, _top + Height + 35);
+    end;
+  end;
+
+  if OwnerId >= 0 then
+  begin
+    if GeneratorNodeList[OwnerId].ChildsCount <= 1 then
+    begin
+      Canvas.Pen.Color := $000000;
+      Canvas.MoveTo(_left + Width div 2, _top - 3);
+      Canvas.LineTo(_left + Width div 2, _top - 32);
+      Canvas.Pen.Color := $7F7F7F;
+      Canvas.MoveTo(_left + Width div 2 + 1, _top - 3);
+      Canvas.LineTo(_left + Width div 2 + 1, _top - 32);
+      Canvas.Pen.Color := $AFAFAF;
+      Canvas.MoveTo(_left + Width div 2 + 2, _top - 3);
+      Canvas.LineTo(_left + Width div 2 + 2, _top - 32);
+    end
+    else
+    begin
+      Canvas.Pen.Color := $000000;
+      Canvas.MoveTo(_left + Width div 2, _top - 3);
+      Canvas.LineTo(_left + Width div 2, _top - 32);
+      Canvas.Pen.Color := $7F7F7F;
+      Canvas.MoveTo(_left + Width div 2 + 1, _top - 3);
+      Canvas.LineTo(_left + Width div 2 + 1, _top - 31);
+      Canvas.Pen.Color := $AFAFAF;
+      Canvas.MoveTo(_left + Width div 2 + 2, _top - 3);
+      Canvas.LineTo(_left + Width div 2 + 2, _top - 30);
+    end;
+  end;
+
+  if IsNeedChange then begin
+    if Status=GN_STATUS_WAIT then Status:=GN_STATUS_CHANGED
+    else if Status=GN_STATUS_WAITRENDER then begin
+
+      IsNeedChange:=false;
+      Status:=GN_STATUS_WAIT;
+
+    //  MainForm.Memo1.Lines.Add('Id='+IntToStr(Id)+' --- Ow='+IntToStr(OwnerId));
+      if (OwnerId>=0) and (OwnerId<GeneratorNodeList.Count) then
+        if GeneratorNodeList[OwnerId].Status=GN_STATUS_WAIT then
+          GeneratorNodeList[OwnerId].IsNeedChange:=true;
+
+    end;
+  end;
+
+  if  (TextureGenerator<>nil) and (TextureGenerator.rbm<>nil)
+    then TextureGenerator.rbm.Canvas.DrawTo(Canvas, _left, _top)
+  else begin
+
+    Canvas.Pen.Color := $000000;
+    Canvas.Brush.Color := $000000;
+    Canvas.Rectangle(_left,_top,_left+Width,_top+Height);
+
+  end;
+
+{
+
+  if not TextureGenerator.IsCached then
+  begin
+    IsRenderProcess := False;
+    exit;
+  end;
+
+  if (OwnerId >= 0) and (OwnerId < GeneratorNodeList.Count) then
+    GeneratorNodeList[OwnerId].IsNeedChange := True;
+
+}
+
+  IsNeedRender    := False;
+  IsRenderProcess := False;
+end;
+
+{******************************************************************************}
+constructor TTextureCacheThread.Create(IsSuspended: boolean);
+begin
+  IsNeedStopThread := False;
+  IsThreadStopped := False;
+  //  OnTerminate:=ThreadDone;
+  FreeOnTerminate := True;
+  Priority := tpNormal;
+  //  Suspend;
+  inherited Create(IsSuspended);
+end;
+
+procedure TTextureCacheThread.SetRBMBitmapForRender;
+begin
+//  GeneratorNodeList[index].TextureGenerator.Cache;
+end;
+
+procedure TTextureCacheThread.SetIsNeedRenderTrue;
+begin
+  //  GeneratorNodeList[index].IsNeedRender:=true;
+end;
+
+procedure TTextureCacheThread.GetIsNeedChange;
+begin
+  IsNeedChange:=GeneratorNodeList[index].IsNeedChange;
+end;
+
+procedure TTextureCacheThread.SetIsNeedChangeFalse;
+begin
+ // GeneratorNodeList[index].IsNeedChange := False;
+end;
+
+procedure TTextureCacheThread.Execute;
+var
+  i:    integer;
+  CurI: integer;
+begin
+  while not Terminated do
+  begin
+    if IsNeedStop then begin
+      CurI:=0;
+      IsStopped:=true;
+    end else begin
+      IsStopped:=false;
+      if (CurI >= 0) and (CurI < GeneratorNodeList.Count) then begin
+
+        index:=CurI;
+        Synchronize(@GetIsNeedChange);
+        if {GeneratorNodeList[CurI].}IsNeedChange then begin
+
+          if GeneratorNodeList[CurI].Status = GN_STATUS_WAIT then begin
+
+
+          end else if GeneratorNodeList[CurI].Status = GN_STATUS_CHANGED then begin
+
+            GeneratorNodeList[CurI].Status := GN_STATUS_CREATE;
+
+          end else if GeneratorNodeList[CurI].Status = GN_STATUS_CREATE then begin
+
+            GeneratorNodeList[CurI].Cache;
+
+            GeneratorNodeList[CurI].TextureGenerator.Cache(false);
+
+            GeneratorNodeList[CurI].Status := GN_STATUS_WAITRENDER;
+
+          end else if GeneratorNodeList[CurI].Status = GN_STATUS_WAITRENDER then begin
+
+          end;
+
+        end else Inc(CurI);
+
+      end else CurI := 0;
+    end;
+  end;
+end;
+
+procedure TTextureCacheThread.ThreadDone(Sender: TObject);
+begin
+
+end;
+
+end.
+

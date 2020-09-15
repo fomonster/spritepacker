@@ -1,0 +1,49 @@
+unit LogFormInit;
+
+{$mode delphi}
+
+interface
+
+uses
+  Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  ExtCtrls;
+
+type
+
+  { TLogForm }
+
+  TLogForm = class(TForm)
+    CloseButton: TButton;
+    Memo1: TMemo;
+    Panel1: TPanel;
+    procedure CloseButtonClick(Sender: TObject);
+  private
+    { private declarations }
+  public
+    { public declarations }
+  end;
+
+var
+  LogForm: TLogForm;
+
+procedure ShowLogForm(s:AnsiString);
+
+implementation
+
+{$R *.lfm}
+
+{ TLogForm }
+
+procedure ShowLogForm(s:AnsiString);
+begin
+
+
+end;
+
+procedure TLogForm.CloseButtonClick(Sender: TObject);
+begin
+  Close
+end;
+
+end.
+
