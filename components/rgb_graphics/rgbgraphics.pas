@@ -35,7 +35,7 @@ uses
   Classes, SysUtils, LCLIntf, FPWriteBMP,
   LCLType, LCLProc, FPImage, LResources, IntfGraphics,
   GraphType, Graphics, Forms, Math, Clipbrd,
-  RGBTypes, RGBRoutines, RGBUtils, FPWritePNG, libwebp;
+  RGBTypes, RGBRoutines, RGBUtils, FPWritePNG, libwebp_static;
   
 
 type
@@ -372,7 +372,8 @@ begin
       stream.Write(header, SizeOf(TDDSHeader));
 
       for i:=0 to bmp.Height-1 do
-        stream.Write(bmp.Pixels[bmp.Width*i],rowSize);
+        for j:=0 to bmp.Width-1 do
+          stream.Write(bmp.Get32PixelPtr(j, i)^, 4);
 
   end;
   stream.Free;
@@ -627,18 +628,22 @@ end;
 
 procedure TRGB32Bitmap.SaveToFileNew(const FileName: String);
   var
-    ext:AnsiString;
+    ext:String;
     pngWriter : TLazWriterPNG;
     bmpWriter : TLazWriterBMP;
     pic:TPicture;
     img : TLazIntfImage;
+    jpgImg : TJPEGImage;
     x:integer;
     y:integer;
-
+     Points: array[0..2] of TPoint;
+     c:TFPColor;
+     cw:Dword;
 begin
   ext := LowerCase(ExtractFileExt(FileName));
 
   if ( ext = '.png' ) then begin
+
     pngWriter := TLazWriterPNG.create;
     pngWriter.UseAlpha := true; //<----- needed to get an alpha channel
     pngWriter.WordSized := false;
@@ -646,48 +651,87 @@ begin
     img := TLazIntfImage.Create( Width, Height, [riqfRGB, riqfAlpha]);
     try
       img.CreateData;
-      for x:=0 to Width-1 do
-        for y:=0 to Height-1 do
-          PDword(img.PixelData + 4 * (x + y * Width ) )^ := self.Get32PixelPtr(x,y)^;
+      for y:=0 to Height-1 do
+        for x:=0 to Width-1 do
+          PDWord(img.PixelData + 4 * y * Width + 4 * x)^ := self.Get32PixelPtr(x,y)^;
 
       img.SaveToFile(FileName, pngWriter);
     finally
       img.Free;
       pngWriter.Free;
     end;
+
   end else if ( ext = '.webp' ) then begin
-   // SaveToWEBP(self, filename);
+    SaveToWEBP(self, filename);
   end else if ( ext = '.dds' ) then begin
-   // SaveToDDS(self,filename,1,true);
+    SaveToDDS(self,filename,1,true);
   end else if ( ext = '.jpg' ) then begin
 
-    { pic:=TPicture.Create;
+     // Color data
+     pic:=TPicture.Create;
+     jpgImg := TJPEGImage.Create;
      try
 
-       pic.Jpeg.SetSize(Width, Height);
-       pic.Jpeg.CompressionQuality:=97;
-       self.Canvas.DrawTo(pic.Jpeg.Canvas,0,0);
-       pic.Jpeg.SaveToFile(FileName);
+        jpgImg.Width := self.Width;
+        jpgImg.Height := self.Height;
 
+        for y:=0 to Height-1 do for x:=0 to Width-1 do begin
+          cw := self.Get32PixelPtrUnsafe(x,y)^;
+          c.Blue:= (cw and $ff) shl 8;
+          c.Green:= (cw and $ff00);
+          c.Red:= (cw and $ff0000) shr 8;
+          c.Alpha:= (cw and $ff000000) shr 16;
+          jpgImg.Canvas.Colors[x, y] := c;
+        end;
+
+       jpgImg.CompressionQuality:=97;
+       jpgImg.SaveToFile(FileName);
      finally
+       jpgImg.Free;
        pic.Free;
-     end;}
+     end;
+
+     // Mask data
+     pic:=TPicture.Create;
+     jpgImg := TJPEGImage.Create;
+     try
+
+        jpgImg.Width := self.Width;
+        jpgImg.Height := self.Height;
+
+        for y:=0 to Height-1 do for x:=0 to Width-1 do begin
+          cw := self.Get32PixelPtrUnsafe(x,y)^;
+          cw := (cw and $ff000000) shr 16;
+          c.Blue:= cw;
+          c.Green:= cw;
+          c.Red:= cw;
+          c.Alpha:= cw;
+          jpgImg.Canvas.Colors[x, y] := c;
+        end;
+
+       jpgImg.CompressionQuality:=97;
+       jpgImg.SaveToFile(Filename.Replace('.jpg', '_mask.jpg'));
+     finally
+       jpgImg.Free;
+       pic.Free;
+     end;
 
   end else if ( ext = '.bmp' ) then begin
-    {bmpWriter := TLazWriterBMP.create;
-    bmpWriter.BitsPerPixel:=32;
+
+    bmpWriter := TLazWriterBMP.create;
+    bmpWriter.BitsPerPixel:=32;  //<----- needed to get an alpha channel
     img := TLazIntfImage.Create( Width, Height, [riqfRGB, riqfAlpha]);
     try
       img.CreateData;
-      for x:=0 to Width-1 do
-        for y:=0 to Height-1 do
-          PDword(img.PixelData + 4 * (x + y * Width ) )^ := self.GetPixelPtr(x,y)^;
-
+      for y:=0 to Height-1 do
+        for x:=0 to Width-1 do
+          PDWord(img.PixelData + 4 * y * Width + 4 * x)^ := self.Get32PixelPtr(x,y)^;
       img.SaveToFile(FileName, bmpWriter);
     finally
       img.Free;
-      pngWriter.Free;
-    end;  }
+      bmpWriter.Free;
+    end;
+
   end;
 end;
 

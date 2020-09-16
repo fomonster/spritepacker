@@ -112,7 +112,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="tools;packer;units;components\rgb_graphics"/>
+      <OtherUnitFiles Value="tools;packer;units;components\rgb_graphics;components\bgrawebp"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Parsing>

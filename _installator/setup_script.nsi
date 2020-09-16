@@ -158,7 +158,8 @@ Section "SpritePacker" INSTSECTION
   ;ADD YOUR OWN FILES HERE...
   
   File spritepacker.exe
-  File libwebp.dll
+  File libwebp32.dll
+  File libwebp64.dll
   
   CreateDirectory "$INSTDIR\export"
   SetOutPath "$INSTDIR\export"

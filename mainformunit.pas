@@ -1058,7 +1058,7 @@ begin
   end;
 
   // Post process
-  {if ( spritePacker.postProcess > 0 ) then begin
+  if ( spritePacker.postProcess > 0 ) then begin
     FixHoles(picture.bitmap);
 
     // alpha fix
@@ -1079,7 +1079,7 @@ begin
       end;
     end;
 
-  end;  }
+  end;
 
   if not showAlpha then begin
 
@@ -1705,7 +1705,7 @@ begin
   except
     on E: Exception do begin
       publishError := true;
-      //AddLog(E.Message);
+      AddLog(E.Message);
     end;
   end;
 

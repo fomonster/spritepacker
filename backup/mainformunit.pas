@@ -1697,7 +1697,7 @@ begin
     if ( currentPage > 0 ) then filenameAddon:='_'+IntToStr(currentPage);
 
     imageFileName:=spritePacker.outputImageFileName+filenameAddon+'.'+spritePacker.outputImageFileFormat;
-   // publishPic.bitmap.SaveToFileNew(imageFileName);
+    publishPic.bitmap.SaveToFileNew(imageFileName);
     AddLog('Saved '+imageFileName);
 
     publishPic.Free;
@@ -1705,7 +1705,7 @@ begin
   except
     on E: Exception do begin
       publishError := true;
-      //AddLog(E.Message);
+      AddLog(E.Message);
     end;
   end;
 
